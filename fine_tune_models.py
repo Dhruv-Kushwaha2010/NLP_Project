@@ -45,8 +45,8 @@ MODEL_CONFIGS = {
     },
     "llama": {
         "model_id": "meta-llama/Llama-3.2-1B",
-        "tokenizer_kwargs": {},
-        "model_kwargs": {},
+        "tokenizer_kwargs": {"token": "YOUR_HUGGINGFACE_TOKEN_HERE"},
+        "model_kwargs": {"token": "YOUR_HUGGINGFACE_TOKEN_HERE"},
         "lora_target_modules": ["q_proj", "k_proj", "v_proj", "o_proj"]
     }
 }
@@ -84,58 +84,63 @@ TASK_CONFIGS = {
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Fine-tune language models with PEFT (LoRA)")
-    parser.add_argument("--model", type=str, required=True, choices=["qwen", "opt", "llama"], 
+    parser.add_argument("--model", type=str, required=True, choices=["qwen", "opt", "llama"],
                         help="Model to fine-tune")
-    parser.add_argument("--task", type=str, required=True, choices=["summarization", "qa", "paraphrase"], 
+    parser.add_argument("--task", type=str, required=True, choices=["summarization", "qa", "paraphrase"],
                         help="Task to fine-tune on")
-    parser.add_argument("--output_dir", type=str, default="./fine_tuned_models", 
+    parser.add_argument("--output_dir", type=str, default="./fine_tuned_models",
                         help="Directory to save the fine-tuned model")
-    parser.add_argument("--num_train_samples", type=int, default=1000, 
+    parser.add_argument("--num_train_samples", type=int, default=100,
                         help="Number of training samples to use")
-    parser.add_argument("--num_eval_samples", type=int, default=100, 
+    parser.add_argument("--num_eval_samples", type=int, default=20,
                         help="Number of evaluation samples to use")
-    parser.add_argument("--lora_r", type=int, default=16, 
+    parser.add_argument("--lora_r", type=int, default=8,
                         help="LoRA attention dimension")
-    parser.add_argument("--lora_alpha", type=int, default=32, 
+    parser.add_argument("--lora_alpha", type=int, default=16,
                         help="LoRA alpha parameter")
-    parser.add_argument("--lora_dropout", type=float, default=0.05, 
+    parser.add_argument("--lora_dropout", type=float, default=0.05,
                         help="LoRA dropout probability")
-    parser.add_argument("--learning_rate", type=float, default=3e-4, 
+    parser.add_argument("--learning_rate", type=float, default=5e-4,
                         help="Learning rate")
-    parser.add_argument("--batch_size", type=int, default=4, 
+    parser.add_argument("--batch_size", type=int, default=1,
                         help="Batch size for training")
-    parser.add_argument("--gradient_accumulation_steps", type=int, default=4, 
+    parser.add_argument("--gradient_accumulation_steps", type=int, default=4,
                         help="Number of gradient accumulation steps")
-    parser.add_argument("--num_epochs", type=int, default=3, 
+    parser.add_argument("--num_epochs", type=int, default=1,
                         help="Number of training epochs")
-    parser.add_argument("--seed", type=int, default=42, 
+    parser.add_argument("--seed", type=int, default=42,
                         help="Random seed")
-    parser.add_argument("--use_4bit", action="store_true", 
+    parser.add_argument("--use_4bit", action="store_true",
                         help="Use 4-bit quantization")
-    parser.add_argument("--use_8bit", action="store_true", 
+    parser.add_argument("--use_8bit", action="store_true",
                         help="Use 8-bit quantization")
     return parser.parse_args()
 
 def prepare_dataset_for_summarization(dataset, tokenizer, config, num_train, num_eval):
     def preprocess_function(examples):
         inputs = [config["prompt_template"].format(article=article) for article in examples[config["input_column"]]]
-        model_inputs = tokenizer(inputs, max_length=config["max_input_length"], truncation=True, padding="max_length")
-        
-        # Tokenize targets
-        labels = tokenizer(examples[config["target_column"]], max_length=config["max_target_length"], 
+
+        # Use the same max_length for both inputs and labels to avoid size mismatch
+        max_length = min(config["max_input_length"], 512)  # Limit to 512 for memory constraints
+
+        # Process inputs
+        model_inputs = tokenizer(inputs, max_length=max_length, truncation=True, padding="max_length")
+
+        # Process targets (labels)
+        labels = tokenizer(examples[config["target_column"]], max_length=max_length,
                           truncation=True, padding="max_length")
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
-    
+
     # Split dataset
     dataset = dataset.shuffle(seed=args.seed)
     train_dataset = dataset.select(range(num_train))
     eval_dataset = dataset.select(range(num_train, num_train + num_eval))
-    
+
     # Preprocess datasets
     train_dataset = train_dataset.map(preprocess_function, batched=True)
     eval_dataset = eval_dataset.map(preprocess_function, batched=True)
-    
+
     return train_dataset, eval_dataset
 
 def prepare_dataset_for_qa(dataset, tokenizer, config, num_train, num_eval):
@@ -144,8 +149,12 @@ def prepare_dataset_for_qa(dataset, tokenizer, config, num_train, num_eval):
             config["prompt_template"].format(context=context, question=question)
             for context, question in zip(examples["context"], examples["question"])
         ]
-        model_inputs = tokenizer(inputs, max_length=config["max_input_length"], truncation=True, padding="max_length")
-        
+
+        # Use the same max_length for both inputs and labels to avoid size mismatch
+        max_length = min(config["max_input_length"], 512)  # Limit to 512 for memory constraints
+
+        model_inputs = tokenizer(inputs, max_length=max_length, truncation=True, padding="max_length")
+
         # Process answers (handling unanswerable questions)
         targets = []
         for answer in examples["answers"]:
@@ -153,118 +162,131 @@ def prepare_dataset_for_qa(dataset, tokenizer, config, num_train, num_eval):
                 targets.append(answer["text"][0])  # Take the first answer
             else:
                 targets.append("unanswerable")
-        
+
         # Tokenize targets
-        labels = tokenizer(targets, max_length=config["max_target_length"], truncation=True, padding="max_length")
+        labels = tokenizer(targets, max_length=max_length, truncation=True, padding="max_length")
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
-    
+
     # Split dataset
     dataset = dataset.shuffle(seed=args.seed)
     train_dataset = dataset.select(range(num_train))
     eval_dataset = dataset.select(range(num_train, num_train + num_eval))
-    
+
     # Preprocess datasets
     train_dataset = train_dataset.map(preprocess_function, batched=True)
     eval_dataset = eval_dataset.map(preprocess_function, batched=True)
-    
+
     return train_dataset, eval_dataset
 
 def prepare_dataset_for_paraphrase(dataset, tokenizer, config, num_train, num_eval):
     # Process Quora dataset to get input-reference pairs
     processed_data = []
     seen_pairs = set()
-    
+
     for i in range(len(dataset)):
         pair = dataset[i]['questions']
         pair_id = tuple(sorted((pair['id'][0], pair['id'][1])))
-        
+
         if pair['id'][0] is not None and pair['id'][1] is not None and pair_id not in seen_pairs:
             processed_data.append({
                 'input_question': pair['text'][0],
                 'reference_paraphrase': pair['text'][1]
             })
             seen_pairs.add(pair_id)
-            
+
             if len(processed_data) >= (num_train + num_eval):
                 break
-    
+
     # Convert to dataset format
     from datasets import Dataset
     processed_dataset = Dataset.from_dict({
         'input_question': [item['input_question'] for item in processed_data],
         'reference_paraphrase': [item['reference_paraphrase'] for item in processed_data]
     })
-    
+
     def preprocess_function(examples):
-        inputs = [config["prompt_template"].format(input_question=question) 
+        inputs = [config["prompt_template"].format(input_question=question)
                  for question in examples[config["input_column"]]]
-        model_inputs = tokenizer(inputs, max_length=config["max_input_length"], truncation=True, padding="max_length")
-        
-        # Tokenize targets
-        labels = tokenizer(examples[config["target_column"]], max_length=config["max_target_length"], 
+
+        # Use the same max_length for both inputs and labels to avoid size mismatch
+        max_length = min(config["max_input_length"], 512)  # Limit to 512 for memory constraints
+
+        # Process inputs
+        model_inputs = tokenizer(inputs, max_length=max_length, truncation=True, padding="max_length")
+
+        # Process targets (labels)
+        labels = tokenizer(examples[config["target_column"]], max_length=max_length,
                           truncation=True, padding="max_length")
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
-    
+
     # Split dataset
     processed_dataset = processed_dataset.shuffle(seed=args.seed)
     train_dataset = processed_dataset.select(range(num_train))
     eval_dataset = processed_dataset.select(range(num_train, num_train + num_eval))
-    
+
     # Preprocess datasets
     train_dataset = train_dataset.map(preprocess_function, batched=True)
     eval_dataset = eval_dataset.map(preprocess_function, batched=True)
-    
+
     return train_dataset, eval_dataset
 
 def main(args):
     set_seed(args.seed)
-    
+
     # Create output directory
     model_task_dir = f"{args.output_dir}/{args.model}_{args.task}"
     os.makedirs(model_task_dir, exist_ok=True)
-    
+
     # Load model configuration
     model_config = MODEL_CONFIGS[args.model]
     task_config = TASK_CONFIGS[args.task]
-    
+
     logger.info(f"Fine-tuning {args.model} on {args.task}")
     logger.info(f"Loading model: {model_config['model_id']}")
-    
+
     # Load tokenizer
     tokenizer = AutoTokenizer.from_pretrained(
         model_config["model_id"],
         **model_config["tokenizer_kwargs"]
     )
-    
+
     # Ensure tokenizer has pad token
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
         logger.info("Set pad_token to eos_token")
-    
-    # Load model with quantization if specified
-    model_kwargs = model_config["model_kwargs"].copy()
-    model_kwargs["device_map"] = "auto"
-    
-    if args.use_4bit:
+
+    # Import device utilities
+    from device_utils import get_device, prepare_model_kwargs
+
+    # Get device
+    device = get_device()
+    logger.info(f"Using device: {device}")
+
+    # Load model with appropriate device settings
+    model_kwargs = prepare_model_kwargs(
+        model_config["model_kwargs"].copy(),
+        use_quantization=args.use_8bit,
+        device=device
+    )
+
+    # Add 4-bit quantization settings if specified (CUDA only)
+    if args.use_4bit and device.type == "cuda":
         model_kwargs["load_in_4bit"] = True
         model_kwargs["bnb_4bit_quant_type"] = "nf4"
         model_kwargs["bnb_4bit_compute_dtype"] = torch.bfloat16
-    elif args.use_8bit:
-        model_kwargs["load_in_8bit"] = True
-    else:
-        model_kwargs["torch_dtype"] = torch.bfloat16
-    
+        logger.info("Using 4-bit quantization")
+
     model = AutoModelForCausalLM.from_pretrained(
         model_config["model_id"],
         **model_kwargs
     )
-    
+
     # Prepare model for k-bit training if using quantization
     if args.use_4bit or args.use_8bit:
         model = prepare_model_for_kbit_training(model)
-    
+
     # Configure LoRA
     lora_config = LoraConfig(
         r=args.lora_r,
@@ -274,19 +296,31 @@ def main(args):
         task_type=TaskType.CAUSAL_LM,
         target_modules=model_config["lora_target_modules"]
     )
-    
+
     # Apply LoRA to model
     model = get_peft_model(model, lora_config)
     model.print_trainable_parameters()
-    
+
     # Load and prepare dataset
     logger.info(f"Loading dataset: {task_config['dataset']}")
-    dataset_args = {"split": "train"}
-    if task_config["dataset_version"]:
-        dataset_args["version"] = task_config["dataset_version"]
-    
-    dataset = load_dataset(task_config["dataset"], **dataset_args)
-    
+
+    # Handle specific dataset versions and configurations
+    if task_config["dataset"] == "cnn_dailymail":
+        logger.info("Loading CNN/DailyMail dataset with version 3.0.0")
+        dataset = load_dataset("cnn_dailymail", "3.0.0", split="train")
+    elif task_config["dataset"] == "squad_v2":
+        logger.info("Loading SQuAD v2 dataset")
+        dataset = load_dataset("squad_v2", split="train")
+    elif task_config["dataset"] == "quora":
+        logger.info("Loading Quora Question Pairs dataset")
+        dataset = load_dataset("quora", split="train", trust_remote_code=True)
+    else:
+        # Fallback to generic loading
+        dataset_args = {"split": "train"}
+        if task_config["dataset_version"]:
+            dataset_args["version"] = task_config["dataset_version"]
+        dataset = load_dataset(task_config["dataset"], **dataset_args)
+
     # Prepare dataset based on task
     if args.task == "summarization":
         train_dataset, eval_dataset = prepare_dataset_for_summarization(
@@ -300,12 +334,13 @@ def main(args):
         train_dataset, eval_dataset = prepare_dataset_for_paraphrase(
             dataset, tokenizer, task_config, args.num_train_samples, args.num_eval_samples
         )
-    
+
     # Configure training arguments
     training_args = TrainingArguments(
         output_dir=model_task_dir,
-        evaluation_strategy="epoch",
-        save_strategy="epoch",
+        do_eval=True,
+        eval_steps=100,
+        save_steps=100,
         learning_rate=args.learning_rate,
         per_device_train_batch_size=args.batch_size,
         per_device_eval_batch_size=args.batch_size,
@@ -315,13 +350,11 @@ def main(args):
         warmup_ratio=0.1,
         logging_dir=f"{model_task_dir}/logs",
         logging_steps=10,
-        load_best_model_at_end=True,
-        metric_for_best_model="eval_loss",
-        greater_is_better=False,
+        save_total_limit=1,
         push_to_hub=False,
         report_to="none"
     )
-    
+
     # Initialize trainer
     trainer = Trainer(
         model=model,
@@ -330,16 +363,16 @@ def main(args):
         eval_dataset=eval_dataset,
         tokenizer=tokenizer,
     )
-    
+
     # Train model
     logger.info("Starting training...")
     trainer.train()
-    
+
     # Save model
     logger.info(f"Saving model to {model_task_dir}")
     model.save_pretrained(model_task_dir)
     tokenizer.save_pretrained(model_task_dir)
-    
+
     logger.info("Fine-tuning complete!")
 
 if __name__ == "__main__":

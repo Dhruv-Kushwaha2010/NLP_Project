@@ -1,0 +1,10 @@
+{
+  "model": "opt",
+  "model_type": "fine-tuned",
+  "task": "paraphrase",
+  "num_samples": 5,
+  "avg_inference_time": 4.661520767211914,
+  "metrics": {
+    "sacrebleu": 4.773721417714513
+  }
+}

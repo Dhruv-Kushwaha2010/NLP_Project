@@ -1,0 +1,17 @@
+{
+  "qa": {
+    "system_type": "dynamic",
+    "task": "qa",
+    "num_samples": 5,
+    "avg_inference_time": 0.0,
+    "metrics": {
+      "rouge-l": 0.0,
+      "bertscore_f1": 0.0
+    },
+    "model_usage": {
+      "qwen": 0,
+      "opt": 0,
+      "llama": 0
+    }
+  }
+}
