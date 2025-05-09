@@ -45,8 +45,8 @@ MODEL_CONFIGS = {
     },
     "llama": {
         "model_id": "meta-llama/Llama-3.2-1B",
-        "tokenizer_kwargs": {"token": "YOUR_HUGGINGFACE_TOKEN_HERE"},
-        "model_kwargs": {"token": "YOUR_HUGGINGFACE_TOKEN_HERE"},
+        "tokenizer_kwargs": {"token": "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"},
+        "model_kwargs": {"token": "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"},
         "lora_target_modules": ["q_proj", "k_proj", "v_proj", "o_proj"]
     }
 }

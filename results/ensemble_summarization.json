@@ -1,0 +1,11 @@
+{
+  "summarization": {
+    "system_type": "ensemble",
+    "task": "summarization",
+    "num_samples": 2,
+    "avg_inference_time": 14.844930052757263,
+    "metrics": {
+      "rouge-l": 0.23372862658576943
+    }
+  }
+}

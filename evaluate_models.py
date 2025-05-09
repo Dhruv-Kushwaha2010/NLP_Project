@@ -35,8 +35,8 @@ MODEL_CONFIGS = {
     },
     "llama": {
         "model_id": "meta-llama/Llama-3.2-1B",
-        "tokenizer_kwargs": {"token": "YOUR_HUGGINGFACE_TOKEN_HERE"},
-        "model_kwargs": {"token": "YOUR_HUGGINGFACE_TOKEN_HERE"},
+        "tokenizer_kwargs": {"token": "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"},
+        "model_kwargs": {"token": "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"},
     }
 }
 
@@ -293,7 +293,24 @@ def main(args):
         # Decode prediction
         input_length = inputs.input_ids.shape[1]
         generated_ids = outputs[0, input_length:]
-        prediction = tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
+
+        try:
+            # Handle potential None values in the generated tokens
+            prediction = tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
+        except Exception as e:
+            logger.warning(f"Error decoding tokens: {e}")
+            # Fallback: decode token by token and skip None values
+            tokens = []
+            for token_id in generated_ids.tolist():
+                try:
+                    token = tokenizer.convert_ids_to_tokens(token_id)
+                    if token is not None:
+                        tokens.append(token)
+                except:
+                    pass
+
+            prediction = tokenizer.convert_tokens_to_string(tokens).strip()
+
         predictions.append(prediction)
 
         if (i + 1) % 10 == 0:

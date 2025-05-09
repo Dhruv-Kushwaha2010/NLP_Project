@@ -1,0 +1,16 @@
+{
+  "summarization": {
+    "system_type": "dynamic",
+    "task": "summarization",
+    "num_samples": 5,
+    "avg_inference_time": 11.377403831481933,
+    "metrics": {
+      "rouge-l": 0.0981220967351342
+    },
+    "model_usage": {
+      "qwen": 3,
+      "opt": 0,
+      "llama": 2
+    }
+  }
+}

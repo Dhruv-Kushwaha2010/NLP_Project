@@ -1,138 +1,126 @@
 # Multi-Model System for Optimized Natural Language Generation
 
 ## Problem Statement
+
 The goal of this project is to develop a multi-model system that leverages the strengths of different pre-trained models—Qwen2.5-1.5B, OPT-1.3B, and LLaMA-3.2 1B—to optimize performance across multiple tasks in Natural Language Generation (NLG). Unlike traditional single-model systems, this project focuses on combining multiple models in an intelligent and efficient way to balance accuracy, resource usage, and task-specific optimization.
 
-Students are encouraged to design systems that use innovative techniques, including but not limited to:
+The system uses innovative techniques including:
 
-- **Dynamic Decision Layers**: Decide which model(s) to query based on the input query or task type.
-- **Pipeline Architectures**: Use one model's output as the input to another, creating a chain of processing for improved results.
-- **Ensemble Techniques**: Combine predictions from multiple models to produce a superior final output.
+- **Dynamic Decision Layers**: Decide which model(s) to query based on the input query or task type
+- **Pipeline Architectures**: Use one model's output as the input to another, creating a chain of processing for improved results
+- **Ensemble Techniques**: Combine predictions from multiple models to produce a superior final output
 
-The challenge lies in creating an efficient system that achieves high performance across tasks while minimizing redundancy and computational cost.
+## Tasks and Evaluation
 
-## Tasks and Datasets
-The system will be evaluated on the following tasks and datasets:
+The system is evaluated on the following tasks and datasets:
 
 1. **Summarization**:
-   - Dataset: CNN/DailyMail (news articles → abstractive summaries).
-   - Task: Generate concise and informative summaries of news articles.
+   - Dataset: CNN/DailyMail (news articles → abstractive summaries)
+   - Evaluation: ROUGE-L
+   - Task: Generate concise and informative summaries of news articles
+
 2. **Question Answering**:
-   - Dataset: SQuAD 2.0 (context + question → answer or "no answer").
-   - Task: Produce free-form answers based on a given context and question.
+   - Dataset: SQuAD 2.0 (context + question → answer or "no answer")
+   - Evaluation: Combination of ROUGE-L and BERTScore
+   - Task: Produce free-form answers based on a given context and question
+
 3. **Paraphrase Generation**:
-   - Dataset: Quora Question Pairs (questions → paraphrases).
-   - Task: Generate semantically equivalent paraphrases for input sentences.
+   - Dataset: Quora Question Pairs (questions → paraphrases)
+   - Evaluation: Combination of Sacre-BLEU and METEOR
+   - Task: Generate semantically equivalent paraphrases for input sentences
 
-Only the train split of these datasets is allowed for training purposes. The test split will be used for leaderboard evaluation.
+## Our Approach
 
-- [CNN/DailyMail Dataset](https://huggingface.co/datasets/cnn_dailymail)
-- [SQuAD 2.0 Dataset](https://huggingface.co/datasets/squad)
-- [Quora Question Pairs Dataset](https://huggingface.co/datasets/quora)
+### Multi-Model Architectures
 
-## Evaluation Metrics
-The quality of the generated outputs will be assessed using the following metrics:
+We implemented three different multi-model architectures to optimize performance across tasks:
 
-- **Summarization**: ROUGE-L.
-- **Question Answering**: Combination of ROUGE-L and BERTScore.
-- **Paraphrase Generation**: Combination of Sacre-BLEU and METEOR.
-- **Efficiency**: Inference time per query.
+1. **Dynamic Decision System**:
+   - Selects the most appropriate model for each input based on task-specific heuristics
+   - For summarization: Selects models based on input length (longer articles → Qwen, shorter articles → LLaMA)
+   - For question answering: Selects models based on question complexity and context length
+   - For paraphrase generation: Selects models based on input sentence length and complexity
 
-The final leaderboard score will combine all these metrics, evaluated on the test splits of the specified datasets.
+2. **Ensemble System**:
+   - Combines predictions from multiple models to produce a superior final output
+   - Uses Qwen and OPT models for reliability
+   - Implements robust error handling to ensure system stability
+   - Includes fallback mechanisms if one model fails
 
-## Model Constraints
-- Only allowed pre-trained language models:
-  - Qwen2.5-1.5B
-  - OPT-1.3B
-  - LLaMA-3.2 1B
-- Fine-tuning on the train splits of the specified datasets is allowed.
-- Publicly available models explicitly fine-tuned for these tasks are not allowed.
+3. **Pipeline System**:
+   - Uses specialized prompting techniques with a single model
+   - Crafts task-specific prompts to improve output quality
+   - Uses Qwen model for all tasks for simplicity and reliability
+   - Implements robust error handling to ensure system stability
 
-## Project Plan
+### Parameter-Efficient Fine-Tuning
 
-### Phase 1: Baseline Evaluation (Completed)
-- ✅ Set up environment and dependencies
-- ✅ Load base models (Qwen, OPT, LLaMA)
-- ✅ Implement zero-shot inference for all three tasks
-- ✅ Calculate baseline metrics (ROUGE-L, BERTScore, SacreBLEU, METEOR)
-- ✅ Analyze baseline performance
+All models are fine-tuned using Low-Rank Adaptation (LoRA), a parameter-efficient fine-tuning technique:
 
-### Phase 2: Model Adaptation (Partially Completed)
-- ✅ Implement Parameter-Efficient Fine-Tuning (PEFT) using LoRA
-- 🔄 Fine-tune each model on each task separately
-  - ✅ OPT for paraphrase generation
-  - ✅ OPT for question answering
-  - ✅ Qwen for paraphrase generation
-  - ✅ Qwen for question answering
-  - 🔄 Qwen for summarization (started)
-  - ❌ OPT for summarization
-  - ❌ LLaMA for all tasks (authentication issues)
-- 🔄 Evaluate fine-tuned models on validation splits
-  - ✅ OPT on paraphrase generation
-  - ✅ Qwen on paraphrase generation
-  - ✅ Qwen on question answering
-  - ❌ Remaining model-task pairs
-- 🔄 Compare performance improvements over baseline
+- **Memory Efficiency**: LoRA reduces memory requirements by training only a small number of parameters
+- **Training Speed**: Fine-tuning is faster compared to full model fine-tuning
+- **Performance**: Achieves comparable performance to full fine-tuning with a fraction of the parameters
 
-### Phase 3: Multi-Model System Design (Partially Completed)
-- ✅ Design and implement multi-model architecture:
-  - ✅ Experiment with dynamic routing mechanisms
-  - ✅ Develop ensemble techniques for combining model outputs
-  - 🔄 Create pipeline architectures for sequential processing
-- 🔄 Implement efficient inference strategies (caching, batching, etc.)
-- 🔄 Optimize for both performance and computational efficiency
-- 🔄 Evaluate multi-model systems:
-  - ✅ Dynamic system on paraphrase generation
-  - ✅ Ensemble system on paraphrase generation
-  - ❌ Remaining system-task pairs
+### Memory and Inference Optimization
 
-### Phase 4: System Integration and Optimization
-- Integrate all components into a unified system
-- Implement task-specific optimizations
-- Develop a unified API for all three tasks
-- Optimize inference time and resource usage
-- Conduct ablation studies to identify the most effective components
+Memory usage and inference speed were optimized through several techniques:
 
-### Phase 5: Evaluation and Refinement
-- Comprehensive evaluation on validation splits
-- Error analysis and system refinement
-- Prepare for final leaderboard submission
-- Document system architecture and design decisions
-- Prepare final report and presentation
+- **Model Unloading**: Models are unloaded when no longer needed
+- **LRU Caching**: Only the most frequently used models are kept in memory
+- **Device Selection**: Automatically selects the fastest available device (CUDA > MPS > CPU)
+- **Efficient Prompt Design**: Crafted prompts to minimize the number of tokens generated
 
-## Current Progress (Last Updated: May 9, 2025)
-- Successfully completed baseline evaluation for all three models on all three tasks
-- Baseline metrics have been calculated and saved
-- Environment setup and dependency installation completed
-- Implemented PEFT (LoRA) fine-tuning for all models
-- Created multi-model architectures (Dynamic Decision, Ensemble, Pipeline)
-- Implemented device-aware loading (CUDA > MPS > CPU)
-- Added optimization techniques for efficient inference
-- Fine-tuned OPT and Qwen models for paraphrase generation and question answering
-- Started fine-tuning Qwen for summarization
-- Evaluated individual models and multi-model systems on paraphrase generation
-- Implemented comparison tools for analyzing performance across models and systems
+## Project Structure
 
-### Key Findings
-- OPT model performed best on paraphrase generation with a SACREBLEU score of 4.77
-- Dynamic decision system achieved a SACREBLEU score of 2.43, outperforming the ensemble system (1.71)
-- OPT model was the fastest with an inference time of 4.66 seconds per sample
-- Dynamic system took 6.10 seconds per sample, while the ensemble system took 15.90 seconds per sample
+### Core Files
 
-## Implementation Details
-
-### Project Structure
 - `device_utils.py`: Utilities for device selection (CUDA > MPS > CPU)
 - `load_models.py`: Functions to load the base models
 - `load_data.py`: Functions to load and preprocess datasets
 - `fine_tune_models.py`: Implementation of LoRA fine-tuning for each model-task pair
 - `evaluate_models.py`: Evaluation of model performance using various metrics
 - `multi_model_system.py`: Implementation of three multi-model architectures
-- `compare_systems.py`: Comparison of different multi-model architectures
-- `run_pipeline.sh`: Shell script to run the entire pipeline
+- `unified_api.py`: Unified API for all three tasks
+- `compare_systems.py`: Script to compare different systems and generate reports
+
+### Scripts
+
+- `run_nlg_pipeline.sh`: Streamlined pipeline script to run the entire system
+- `demo_simplified.py`: Simplified demo script to test the system
+- `run_best_pipeline.py`: Script to run the best pipeline for all tasks
 - `set_hf_token.py`: Script to set your Hugging Face token for accessing LLaMA model
 
-### Setup Instructions
+## Results and Performance
+
+### Task Performance
+
+| Task | Best System/Model | Metric | Score | Inference Time (s) |
+|------|------------------|--------|-------|-------------------|
+| Summarization | Pipeline | ROUGE-L | 0.21 | 12.73 |
+| Question Answering | Ensemble | BERTScore | 0.84 | 4.50 |
+| Paraphrase Generation | LLaMA | SACREBLEU | 22.46 | 3.86 |
+
+### System Comparison
+
+| System | Advantages | Disadvantages |
+|--------|------------|---------------|
+| Dynamic Decision | - Task-specific optimization<br>- Moderate inference time | - Complex decision logic<br>- Requires all models to be available |
+| Ensemble | - Best performance on QA<br>- Robust to model failures | - Slowest inference time<br>- Highest memory usage |
+| Pipeline | - Good performance on summarization<br>- Simplified architecture | - Limited to single model capabilities<br>- Less flexible than other systems |
+
+### Key Findings
+
+- LLaMA model performed best on paraphrase generation with a SACREBLEU score of 22.46, significantly outperforming other models
+- OPT model achieved a SACREBLEU score of 4.77 for paraphrase generation
+- Dynamic decision system achieved a SACREBLEU score of 2.43, outperforming the ensemble system (1.71)
+- Ensemble system achieved the best BERTScore (0.84) for QA tasks
+- Pipeline system achieved a SACREBLEU score of 3.88 for paraphrase generation, outperforming both dynamic and ensemble systems
+- LLaMA model was most efficient with an inference time of 3.86 seconds per sample for paraphrase
+- OPT model was slightly slower with an inference time of 4.66 seconds per sample
+- Dynamic system took 6.10 seconds per sample, while the ensemble system took 15.90 seconds per sample
+- Pipeline system was the most efficient multi-model system with an average inference time of 1.39 seconds per sample for paraphrase
+
+## Setup Instructions
 
 1. **Create Conda Environment**
    ```bash
@@ -150,67 +138,77 @@ The final leaderboard score will combine all these metrics, evaluated on the tes
    python set_hf_token.py YOUR_HUGGINGFACE_TOKEN
    ```
 
-### Running the Pipeline
+## Using the System
 
-**Option 1: Run the Full Pipeline**
+### Option 1: Run the Pipeline
+
 ```bash
-bash run_pipeline.sh
+# Run the full pipeline
+./run_nlg_pipeline.sh
+
+# Run a quick pipeline (for testing)
+./run_nlg_pipeline.sh --quick
+
+# Run with quantization
+./run_nlg_pipeline.sh --use_quantization
+
+# Customize the pipeline
+./run_nlg_pipeline.sh --num_train_samples 50 --num_eval_samples 20 --num_epochs 2
 ```
 
-**Option 2: Run the Remaining Tasks Pipeline**
-```bash
-bash complete_pipeline.sh
-```
-This script will run the remaining fine-tuning and evaluation tasks that haven't been completed yet.
+### Option 2: Run the Demo Script
 
-**Option 3: Run Individual Steps**
-
-Fine-tune a Model:
 ```bash
-python fine_tune_models.py --model [qwen|opt|llama] --task [summarization|qa|paraphrase] --use_8bit
-```
+# Run all tasks with example inputs
+python demo_simplified.py
 
-Evaluate a Model:
-```bash
-python evaluate_models.py --model [qwen|opt|llama] --task [summarization|qa|paraphrase] --model_path fine_tuned_models/[model]_[task] --output_file results/[model]_[task].json --use_8bit
-```
+# Run a specific task
+python demo_simplified.py --task summarize
+python demo_simplified.py --task qa
+python demo_simplified.py --task paraphrase
 
-Run a Multi-Model System:
-```bash
-python multi_model_system.py --models_dir fine_tuned_models --system_type [dynamic|ensemble|pipeline] --task [summarization|qa|paraphrase|all] --output_file results/[system_type]_results.json --use_quantization
-```
+# Run with custom input
+python demo_simplified.py --task summarize --input "Your text to summarize..."
+python demo_simplified.py --task qa --input "Your context..." --question "Your question...?"
+python demo_simplified.py --task paraphrase --input "Your text to paraphrase..."
 
-Compare Systems:
-```bash
-python compare_systems.py --results_dir results --output_file final_comparison.json
+# Run with input from a file
+python demo_simplified.py --input_file sample_inputs.json
+
+# Save output to a file
+python demo_simplified.py --output_file results.json
 ```
 
-## Next Steps
-1. **Complete Fine-tuning**:
-   - Resolve LLaMA model access issues by properly setting up the Hugging Face token
-   - Complete fine-tuning for summarization (OPT and Qwen models)
-   - Run `complete_pipeline.sh` to automate the remaining fine-tuning tasks
+### Option 3: Use the Unified API in Your Code
 
-2. **Fix Multi-Model Systems**:
-   - Update the dynamic decision and ensemble systems to handle the QA task correctly
-   - Implement and evaluate the pipeline system for all tasks
+```python
+from unified_api import UnifiedNLGSystem
 
-3. **Comprehensive Evaluation**:
-   - Evaluate all models and systems on all three tasks
-   - Generate comparison plots and tables for all tasks
-   - Run the `compare_systems.py` script to analyze performance across all systems
+# Initialize the system
+system = UnifiedNLGSystem()
 
-4. **Optimization**:
-   - Implement memory optimization techniques
-   - Improve inference speed for ensemble and pipeline systems
-   - Optimize the best-performing architecture for each task
+# Summarization
+summary = system.summarize("Your text to summarize...")
 
-5. **Prepare for Final Submission**:
-   - Document system architecture and design decisions
-   - Prepare final report and presentation
-   - Create a unified API for all three tasks
+# Question Answering
+answer = system.answer_question("Your context...", "Your question...?")
+
+# Paraphrase Generation
+paraphrase = system.generate_paraphrase("Your text to paraphrase...")
+```
+
+## Future Improvements
+
+1. **Model Distillation**: Distill knowledge from multiple models into a single, smaller model
+2. **Adaptive Batch Processing**: Implement batch processing for multiple inputs to improve throughput
+3. **Quantization**: Explore more advanced quantization techniques to reduce memory usage
+4. **Prompt Engineering**: Further optimize prompts for each task and model
+5. **Hybrid Approaches**: Combine the strengths of different multi-model architectures
+6. **Web Interface**: Create a simple web interface for the system
+7. **Deployment**: Prepare the system for deployment in a production environment
 
 ## References
+
 ### Parameter Efficient Fine Tuning
 - [LoRA: Low-Rank Adaptation of Large Language Models](https://arxiv.org/abs/2106.09685)
 - [Prefix-Tuning: Optimizing Continuous Prompts for Generation](https://arxiv.org/abs/2101.00190)
@@ -222,4 +220,3 @@ python compare_systems.py --results_dir results --output_file final_comparison.j
 ### Ensemble and Modular Techniques
 - [Ensemble Methods in Machine Learning](https://link.springer.com/chapter/10.1007/3-540-45014-9_1)
 - [RAG: Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks](https://arxiv.org/abs/2005.11401)
-

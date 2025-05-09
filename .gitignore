@@ -100,6 +100,6 @@ wandb/
 !README.md
 !LICENSE
 !.gitignore
-!run_pipeline.sh
-!complete_pipeline.sh
+!run_nlg_pipeline.sh
 !set_hf_token.py
+!demo_simplified.py

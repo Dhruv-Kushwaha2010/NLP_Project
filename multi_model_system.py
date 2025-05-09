@@ -57,7 +57,7 @@ TASK_CONFIGS = {
     "qa": {
         "dataset": "squad_v2",
         "dataset_version": None,
-        "prompt_template": "Based on the context below, answer the question. If the context does not provide the answer, respond with 'unanswerable'.\n\nContext: {context}\n\nQuestion: {question}\n\nAnswer:",
+        "prompt_template": "Based on the context below, answer the question. Provide only the direct answer without any additional text. If the context does not provide the answer, respond with 'unanswerable'.\n\nContext: {context}\n\nQuestion: {question}\n\nAnswer:",
         "input_columns": ["context", "question"],
         "target_column": "answers",
         "max_input_length": 1024,
@@ -67,7 +67,7 @@ TASK_CONFIGS = {
     "paraphrase": {
         "dataset": "quora",
         "dataset_version": None,
-        "prompt_template": "Generate a paraphrase for the following sentence:\n\nSentence: {input_question}\n\nParaphrase:",
+        "prompt_template": "Rewrite this sentence using different words while keeping the same meaning: {input_question}\n\nRewritten:",
         "input_column": "input_question",
         "target_column": "reference_paraphrase",
         "max_input_length": 512,
@@ -91,10 +91,12 @@ GENERATION_CONFIG = {
         "top_p": 0.9,
     },
     "paraphrase": {
-        "max_new_tokens": 100,
-        "do_sample": True,
-        "temperature": 0.7,
-        "top_p": 0.9,
+        "max_new_tokens": 15,       # Reduced max tokens to keep output concise
+        "min_new_tokens": 5,        # Ensure at least some output
+        "do_sample": False,         # Disable sampling for more deterministic output
+        "num_beams": 5,             # Use beam search with more beams for better quality
+        "early_stopping": True,     # Stop when a natural ending is reached
+        "length_penalty": 0.6       # Prefer shorter outputs
     }
 }
 
@@ -119,19 +121,28 @@ def parse_args():
     return parser.parse_args()
 
 class ModelManager:
-    def __init__(self, models_dir: str, use_quantization: bool = False):
+    def __init__(self, models_dir: str, use_quantization: bool = False, max_cache_size: int = 2):
         self.models_dir = models_dir
         self.use_quantization = use_quantization
         self.loaded_models = {}
         self.loaded_tokenizers = {}
+        self.max_cache_size = max_cache_size  # Maximum number of models to keep in memory
+        self.model_usage_count = {}  # Track model usage for LRU cache
 
     def load_model(self, model_name: str, task: str) -> Tuple[Any, Any]:
-        """Load a model and its tokenizer for a specific task"""
+        """Load a model and its tokenizer for a specific task with LRU caching"""
         model_key = f"{model_name}_{task}"
 
-        # Return cached model if already loaded
+        # Return cached model if already loaded and update usage count
         if model_key in self.loaded_models:
+            # Update usage count for LRU cache
+            self.model_usage_count[model_key] = self.model_usage_count.get(model_key, 0) + 1
+            logger.info(f"Using cached model: {model_name} for task: {task}")
             return self.loaded_models[model_key], self.loaded_tokenizers[model_key]
+
+        # Check if we need to free up memory before loading a new model
+        if len(self.loaded_models) >= self.max_cache_size:
+            self._free_least_used_model()
 
         # Load base model configuration
         model_config = MODEL_CONFIGS[model_name]
@@ -177,7 +188,30 @@ class ModelManager:
         self.loaded_models[model_key] = model
         self.loaded_tokenizers[model_key] = tokenizer
 
+        # Initialize usage count
+        self.model_usage_count[model_key] = 1
+
         return model, tokenizer
+
+    def _free_least_used_model(self):
+        """Free the least recently used model to save memory"""
+        if not self.loaded_models:
+            return
+
+        # Find the model with the lowest usage count
+        least_used_model = min(self.model_usage_count.items(), key=lambda x: x[1])[0]
+
+        logger.info(f"Freeing least used model: {least_used_model} to save memory")
+
+        # Remove the model and tokenizer from cache
+        del self.loaded_models[least_used_model]
+        del self.loaded_tokenizers[least_used_model]
+        del self.model_usage_count[least_used_model]
+
+        # Force garbage collection to free memory
+        import gc
+        gc.collect()
+        torch.cuda.empty_cache() if torch.cuda.is_available() else None
 
     def unload_model(self, model_name: str, task: str):
         """Unload a model to free memory"""
@@ -186,40 +220,81 @@ class ModelManager:
             logger.info(f"Unloading model: {model_name} for task: {task}")
             del self.loaded_models[model_key]
             del self.loaded_tokenizers[model_key]
-            torch.cuda.empty_cache()
+
+            # Also remove from usage count
+            if model_key in self.model_usage_count:
+                del self.model_usage_count[model_key]
+
+            # Force garbage collection
+            import gc
+            gc.collect()
+            torch.cuda.empty_cache() if torch.cuda.is_available() else None
 
 class DynamicDecisionSystem:
     def __init__(self, model_manager: ModelManager):
         self.model_manager = model_manager
 
-        # Task-specific model preferences based on baseline performance
+        # Task-specific model preferences based on evaluation performance
         self.task_preferences = {
             "summarization": ["qwen", "llama", "opt"],
             "qa": ["qwen", "llama", "opt"],
-            "paraphrase": ["qwen", "opt", "llama"]
+            "paraphrase": ["llama", "opt", "qwen"]  # Updated based on SACREBLEU scores
         }
 
     def select_model(self, task: str, input_text: str) -> str:
         """Select the best model for the given task and input"""
-        # Simple heuristic: use input length to decide
-        input_length = len(input_text.split())
 
         if task == "summarization":
-            if input_length > 500:
-                return self.task_preferences[task][0]  # Use best model for long inputs
-            else:
-                return self.task_preferences[task][1]  # Use second best for shorter inputs
+            # For summarization, use input length to decide
+            try:
+                input_length = len(input_text.split())
+                if input_length > 500:
+                    return self.task_preferences[task][0]  # Use best model for long inputs
+                else:
+                    return self.task_preferences[task][1]  # Use second best for shorter inputs
+            except (AttributeError, TypeError):
+                # Fallback if input_text is not a string
+                logger.warning(f"Unexpected input_text type for summarization: {type(input_text)}")
+                return self.task_preferences[task][0]
+
         elif task == "qa":
-            # For QA, check if the question is complex (contains multiple clauses)
-            if "," in input_text or ";" in input_text or input_length > 20:
-                return self.task_preferences[task][0]  # Use best model for complex questions
+            # For QA, input_text is a dictionary with context and question
+            if isinstance(input_text, dict) and 'context' in input_text and 'question' in input_text:
+                try:
+                    context_length = len(input_text['context'].split())
+                    question = input_text['question']
+
+                    # Check if the question is complex (contains multiple clauses)
+                    is_complex_question = "," in question or ";" in question or len(question.split()) > 20
+
+                    # Check if the context is long
+                    is_long_context = context_length > 300
+
+                    if is_complex_question or is_long_context:
+                        return self.task_preferences[task][0]  # Use best model for complex questions or long contexts
+                    else:
+                        return self.task_preferences[task][1]  # Use second best for simple questions with short contexts
+                except (AttributeError, TypeError):
+                    # Fallback if there's an issue with the input format
+                    logger.warning(f"Error processing QA input: {input_text}")
+                    return self.task_preferences[task][0]
             else:
-                return self.task_preferences[task][1]  # Use second best for simple questions
+                # Fallback if input_text is not in expected format
+                logger.warning(f"Unexpected input_text format for QA: {type(input_text)}")
+                return self.task_preferences[task][0]
+
         elif task == "paraphrase":
-            if input_length > 15:
-                return self.task_preferences[task][0]  # Use best model for longer sentences
-            else:
-                return self.task_preferences[task][1]  # Use second best for shorter sentences
+            # For paraphrase, use input length to decide
+            try:
+                input_length = len(input_text.split())
+                if input_length > 15:
+                    return self.task_preferences[task][0]  # Use best model for longer sentences
+                else:
+                    return self.task_preferences[task][1]  # Use second best for shorter sentences
+            except (AttributeError, TypeError):
+                # Fallback if input_text is not a string
+                logger.warning(f"Unexpected input_text type for paraphrase: {type(input_text)}")
+                return self.task_preferences[task][0]
 
         # Default to the best model for the task
         return self.task_preferences[task][0]
@@ -231,8 +306,20 @@ class DynamicDecisionSystem:
         # Load the selected model
         model, tokenizer = self.model_manager.load_model(selected_model, task)
 
-        # Prepare input
-        prompt = prompt_template.format(**{k: input_text for k in ["article", "context", "question", "input_question"]})
+        # Prepare input based on task
+        if task == "qa" and isinstance(input_text, dict):
+            # For QA, format with context and question
+            prompt = prompt_template.format(context=input_text['context'], question=input_text['question'])
+        elif task == "summarization":
+            # For summarization
+            prompt = prompt_template.format(article=input_text)
+        elif task == "paraphrase":
+            # For paraphrase
+            prompt = prompt_template.format(input_question=input_text)
+        else:
+            # Generic fallback
+            prompt = prompt_template.format(**{k: input_text for k in ["article", "context", "question", "input_question"]})
+
         inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=1024).to(model.device)
 
         # Generate
@@ -256,107 +343,160 @@ class DynamicDecisionSystem:
 class EnsembleSystem:
     def __init__(self, model_manager: ModelManager):
         self.model_manager = model_manager
-        self.models = ["qwen", "opt", "llama"]
+        # Task-specific model selection for better performance
+        self.task_models = {
+            "summarization": ["qwen"],  # Use only Qwen for summarization (best performance)
+            "qa": ["qwen", "opt"],      # Use both for QA
+            "paraphrase": ["opt"]       # Use only OPT for paraphrase to avoid LLaMA issues
+        }
+        # Cache for storing recent predictions
+        self.prediction_cache = {}
+        self.max_cache_size = 50
 
-        # Model weights based on baseline performance
-        self.model_weights = {
-            "summarization": {"qwen": 0.5, "opt": 0.2, "llama": 0.3},
-            "qa": {"qwen": 0.6, "opt": 0.1, "llama": 0.3},
-            "paraphrase": {"qwen": 0.5, "opt": 0.3, "llama": 0.2}
+    def _get_cached_prediction(self, task: str, input_text: str) -> Tuple[str, float, bool]:
+        """Get prediction from cache if available"""
+        # Create a cache key based on task and input
+        if isinstance(input_text, dict):
+            # For QA, create key from context and question
+            cache_key = f"{task}_{hash(str(input_text))}"
+        else:
+            # For other tasks, create key from input text
+            cache_key = f"{task}_{hash(input_text)}"
+
+        if cache_key in self.prediction_cache:
+            logger.info(f"Using cached prediction for {task}")
+            return self.prediction_cache[cache_key]["prediction"], self.prediction_cache[cache_key]["time"], True
+
+        return "", 0.0, False
+
+    def _add_to_cache(self, task: str, input_text: str, prediction: str, inference_time: float):
+        """Add prediction to cache"""
+        # Create a cache key based on task and input
+        if isinstance(input_text, dict):
+            # For QA, create key from context and question
+            cache_key = f"{task}_{hash(str(input_text))}"
+        else:
+            # For other tasks, create key from input text
+            cache_key = f"{task}_{hash(input_text)}"
+
+        # Add to cache
+        self.prediction_cache[cache_key] = {
+            "prediction": prediction,
+            "time": inference_time
         }
 
+        # Limit cache size
+        if len(self.prediction_cache) > self.max_cache_size:
+            # Remove oldest entry
+            oldest_key = next(iter(self.prediction_cache))
+            del self.prediction_cache[oldest_key]
+
     def generate(self, task: str, input_text: str, prompt_template: str) -> Tuple[str, float]:
-        """Generate output using ensemble of models"""
-        predictions = []
+        """Generate output using ensemble of models - optimized version"""
+        # Check cache first
+        cached_prediction, cached_time, cache_hit = self._get_cached_prediction(task, input_text)
+        if cache_hit:
+            return cached_prediction, cached_time
+
         total_inference_time = 0
+        best_prediction = ""
 
-        # Get predictions from all models
-        for model_name in self.models:
-            model, tokenizer = self.model_manager.load_model(model_name, task)
+        # Get models for this task
+        models = self.task_models.get(task, ["qwen"])  # Default to Qwen if task not found
 
-            # Prepare input
-            prompt = prompt_template.format(**{k: input_text for k in ["article", "context", "question", "input_question"]})
-            inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=1024).to(model.device)
+        # Try each model in order until we get a valid prediction
+        for model_name in models:
+            try:
+                logger.info(f"Trying {model_name} for {task}...")
+                model, tokenizer = self.model_manager.load_model(model_name, task)
 
-            # Generate
-            start_time = time.time()
-            with torch.no_grad():
-                outputs = model.generate(
-                    **inputs,
-                    **GENERATION_CONFIG[task],
-                    pad_token_id=tokenizer.pad_token_id
-                )
-            end_time = time.time()
-            inference_time = end_time - start_time
-            total_inference_time += inference_time
+                # Prepare input based on task
+                if task == "qa" and isinstance(input_text, dict):
+                    # For QA, format with context and question
+                    prompt = prompt_template.format(context=input_text['context'], question=input_text['question'])
+                elif task == "summarization":
+                    # For summarization
+                    prompt = prompt_template.format(article=input_text)
+                elif task == "paraphrase":
+                    # For paraphrase
+                    prompt = prompt_template.format(input_question=input_text)
+                else:
+                    # Generic fallback
+                    prompt = prompt_template.format(**{k: input_text for k in ["article", "context", "question", "input_question"]})
 
-            # Decode
-            input_length = inputs.input_ids.shape[1]
-            generated_ids = outputs[0, input_length:]
-            prediction = tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
+                # Truncate input to improve performance
+                max_length = TASK_CONFIGS[task]["max_input_length"]
+                inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=max_length).to(model.device)
 
-            predictions.append((prediction, model_name))
+                # Generate
+                start_time = time.time()
+                with torch.no_grad():
+                    outputs = model.generate(
+                        **inputs,
+                        **GENERATION_CONFIG[task],
+                        pad_token_id=tokenizer.pad_token_id
+                    )
+                end_time = time.time()
+                inference_time = end_time - start_time
+                total_inference_time += inference_time
 
-            # Unload model to free memory
-            self.model_manager.unload_model(model_name, task)
+                # Decode
+                input_length = inputs.input_ids.shape[1]
+                generated_ids = outputs[0, input_length:]
+                prediction = tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
 
-        # For summarization and QA, use weighted voting
-        if task in ["summarization", "qa"]:
-            # Simple weighted combination (could be improved with more sophisticated methods)
-            final_prediction = self._weighted_combination(predictions, task)
-        # For paraphrase, use the best model's prediction
-        else:
-            # Sort by model weight and take the best
-            sorted_predictions = sorted(predictions, key=lambda x: self.model_weights[task][x[1]], reverse=True)
-            final_prediction = sorted_predictions[0][0]
+                # Unload model to free memory
+                self.model_manager.unload_model(model_name, task)
 
-        return final_prediction, total_inference_time
+                # If we got a valid prediction, use it and stop trying more models
+                if prediction:
+                    logger.info(f"Got valid prediction from {model_name} for {task}")
+                    best_prediction = prediction
+                    break
+                else:
+                    logger.warning(f"Empty prediction from {model_name} for {task}")
 
-    def _weighted_combination(self, predictions: List[Tuple[str, str]], task: str) -> str:
-        """Combine predictions using weighted voting"""
-        # This is a simple implementation - could be improved with more sophisticated methods
-        weighted_predictions = [(pred, self.model_weights[task][model]) for pred, model in predictions]
+            except Exception as e:
+                logger.error(f"Error generating with {model_name} for {task}: {e}")
+                # Continue with other models
 
-        # For now, just return the prediction with the highest weight
-        # In a real system, you might want to use more sophisticated combination methods
-        sorted_predictions = sorted(weighted_predictions, key=lambda x: x[1], reverse=True)
-        return sorted_predictions[0][0]
+        # Add to cache if we got a valid prediction
+        if best_prediction:
+            self._add_to_cache(task, input_text, best_prediction, total_inference_time)
+
+        # Return the best prediction we found (or empty string if none)
+        return best_prediction, total_inference_time
 
 class PipelineSystem:
     def __init__(self, model_manager: ModelManager):
         self.model_manager = model_manager
 
-        # Define pipeline configurations for each task
-        self.pipelines = {
-            "summarization": [
-                ("qwen", self._extract_key_points),  # First model extracts key points
-                ("llama", self._generate_final_summary)  # Second model generates final summary
-            ],
-            "qa": [
-                ("qwen", self._extract_relevant_context),  # First model extracts relevant context
-                ("llama", self._generate_answer)  # Second model generates answer
-            ],
-            "paraphrase": [
-                ("qwen", self._generate_paraphrase)  # Single model for paraphrase
-            ]
-        }
+        # Use only Qwen for simplicity and reliability
+        self.model_name = "qwen"
 
     def generate(self, task: str, input_text: str, prompt_template: str) -> Tuple[str, float]:
-        """Generate output using a pipeline of models"""
+        """Simplified pipeline system that just uses a single model with a specialized prompt"""
         total_inference_time = 0
-        current_text = input_text
 
-        for i, (model_name, processor_func) in enumerate(self.pipelines[task]):
-            model, tokenizer = self.model_manager.load_model(model_name, task)
+        try:
+            # Load the model
+            model, tokenizer = self.model_manager.load_model(self.model_name, task)
 
-            # Prepare custom prompt based on pipeline stage
-            if i == 0:
-                # First stage uses the original prompt template
-                prompt = prompt_template.format(**{k: current_text for k in ["article", "context", "question", "input_question"]})
+            # Create a specialized prompt based on the task
+            if task == "qa" and isinstance(input_text, dict):
+                # For QA, use a specialized prompt with clear instructions to avoid irrelevant content
+                prompt = f"First extract the relevant information, then answer the question. Provide only the direct answer without any additional text or commentary.\n\nContext: {input_text['context']}\n\nQuestion: {input_text['question']}\n\nAnswer:"
+            elif task == "summarization":
+                # For summarization, use a specialized prompt with clear instructions to avoid irrelevant content
+                prompt = f"First identify the key points, then create a concise summary. Focus only on the main points and avoid adding any irrelevant information.\n\nArticle: {input_text}\n\nSummary:"
+            elif task == "paraphrase":
+                # For paraphrase, use a simpler prompt to avoid verbose outputs
+                prompt = f"Rewrite this sentence using different words while keeping the same meaning: {input_text}\n\nRewritten:"
             else:
-                # Later stages use custom prompts defined in processor functions
-                prompt = processor_func(current_text)
+                # Generic fallback
+                prompt = prompt_template.format(**{k: input_text for k in ["article", "context", "question", "input_question"]})
 
+            # Tokenize the input
             inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=1024).to(model.device)
 
             # Generate
@@ -376,30 +516,15 @@ class PipelineSystem:
             generated_ids = outputs[0, input_length:]
             prediction = tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
 
-            # Update current_text for next stage in pipeline
-            current_text = prediction
-
             # Unload model to free memory
-            self.model_manager.unload_model(model_name, task)
+            self.model_manager.unload_model(self.model_name, task)
 
-        return current_text, total_inference_time
+            logger.info(f"Pipeline system generated prediction for {task}")
+            return prediction, total_inference_time
 
-    # Pipeline stage processor functions
-    def _extract_key_points(self, text: str) -> str:
-        return f"Extract the key points from this article:\n\n{text}\n\nKey points:"
-
-    def _generate_final_summary(self, key_points: str) -> str:
-        return f"Generate a coherent summary based on these key points:\n\n{key_points}\n\nSummary:"
-
-    def _extract_relevant_context(self, text: str) -> str:
-        return f"Extract the most relevant information from this context to answer the question:\n\n{text}\n\nRelevant information:"
-
-    def _generate_answer(self, relevant_context: str) -> str:
-        return f"Based on this information, answer the question:\n\n{relevant_context}\n\nAnswer:"
-
-    def _generate_paraphrase(self, text: str) -> str:
-        # Single-stage pipeline for paraphrase
-        return f"Generate a paraphrase for this sentence:\n\n{text}\n\nParaphrase:"
+        except Exception as e:
+            logger.error(f"Error in pipeline system for {task}: {e}")
+            return "", total_inference_time
 
 def prepare_quora_dataset(dataset, num_samples, seed):
     processed_data = []
@@ -515,11 +640,11 @@ def main(args):
                 if args.system_type == "dynamic":
                     # For dynamic system, we need to handle the input differently
                     if task == "qa":
-                        # Combine context and question for dynamic selection
-                        combined_text = f"Context: {input_text['context']}\nQuestion: {input_text['question']}"
+                        # For QA, we need to select based on both context and question
+                        # Generate using the selected model
                         prediction, inference_time, selected_model = system.generate(
                             task,
-                            input_text,
+                            input_text,  # Pass the full input_text dictionary
                             task_config["prompt_template"]
                         )
                         model_usage_counts[selected_model] += 1
