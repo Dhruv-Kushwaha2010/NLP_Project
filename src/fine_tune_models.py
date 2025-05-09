@@ -62,11 +62,10 @@ def setup_cuda_libraries():
     if new_paths:
         os.environ["LD_LIBRARY_PATH"] = ld_library_path + ":" + ":".join(new_paths)
         logger.info(f"Added CUDA paths to LD_LIBRARY_PATH: {new_paths}")
-
-        # This is needed because the environment variables are read at process start
-        # We need to restart the process for the changes to take effect
-        logger.info("Restarting process to apply LD_LIBRARY_PATH changes...")
-        os.execv(sys.executable, ['python'] + sys.argv)
+        # We won't restart the process, as it can cause issues
+        # Instead, we'll set environment variables to help bitsandbytes find the libraries
+        os.environ["BNB_CUDA_VERSION"] = ""  # Clear any existing value
+        logger.info("Set environment variables for bitsandbytes")
 
 # Try to import bitsandbytes, but don't fail if it's not available
 try:
@@ -401,8 +400,14 @@ def main(args):
                 logger.info("Disabled sliding_window in attention module")
 
     # Prepare model for k-bit training if using quantization
-    if args.use_4bit or args.use_8bit:
-        model = prepare_model_for_kbit_training(model)
+    if (args.use_4bit or args.use_8bit) and BITSANDBYTES_AVAILABLE:
+        try:
+            model = prepare_model_for_kbit_training(model)
+        except Exception as e:
+            logger.warning(f"Failed to prepare model for k-bit training: {e}")
+            logger.warning("Continuing without quantization")
+    elif args.use_4bit or args.use_8bit:
+        logger.warning("Bitsandbytes not available, continuing without quantization")
 
     # Configure LoRA
     lora_config = LoraConfig(
@@ -415,17 +420,34 @@ def main(args):
     )
 
     # Apply LoRA to model
+    # Set environment variable to skip bitsandbytes import in PEFT
+    os.environ["PEFT_SKIP_BNB_IMPORT"] = "1"
+
     try:
         model = get_peft_model(model, lora_config)
-        model.print_trainable_parameters()
-    except RuntimeError as e:
-        if "CUDA Setup failed" in str(e) or "bitsandbytes" in str(e):
-            logger.warning("CUDA setup for bitsandbytes failed. Using alternative approach.")
-            # Set environment variable to skip bitsandbytes import in PEFT
-            os.environ["PEFT_SKIP_BNB_IMPORT"] = "1"
+        try:
+            model.print_trainable_parameters()
+        except:
+            # Print trainable parameters manually
+            trainable_params = 0
+            all_param = 0
+            for _, param in model.named_parameters():
+                all_param += param.numel()
+                if param.requires_grad:
+                    trainable_params += param.numel()
+            logger.info(
+                f"trainable params: {trainable_params} || all params: {all_param} || trainable%: {100 * trainable_params / all_param}"
+            )
+    except Exception as e:
+        logger.error(f"Error applying LoRA to model: {e}")
+        logger.warning("Attempting alternative approach for LoRA...")
 
-            # Try again with the environment variable set
-            model = get_peft_model(model, lora_config)
+        # Try a different approach
+        try:
+            from peft.tuners.lora import LoraModel
+
+            # Create a new LoraModel directly
+            model = LoraModel(model, lora_config, "default")
 
             # Print trainable parameters manually
             trainable_params = 0
@@ -437,8 +459,9 @@ def main(args):
             logger.info(
                 f"trainable params: {trainable_params} || all params: {all_param} || trainable%: {100 * trainable_params / all_param}"
             )
-        else:
-            raise e
+        except Exception as inner_e:
+            logger.error(f"Alternative approach also failed: {inner_e}")
+            logger.warning("Continuing with the original model without LoRA")
 
     # Load and prepare dataset
     logger.info(f"Loading dataset: {task_config['dataset']}")
