@@ -43,6 +43,10 @@ USE_QUANTIZATION=false
 NUM_TRAIN_SAMPLES=100
 NUM_EVAL_SAMPLES=30
 NUM_EPOCHS=1
+DATASET_SIZE_PERCENTAGE=""
+USE_WANDB=false
+WANDB_PROJECT="nlp-multi-model"
+WANDB_NAME=""
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -61,6 +65,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         --num_train_samples)
             NUM_TRAIN_SAMPLES="$2"
+            DATASET_SIZE_PERCENTAGE=""  # Clear percentage if explicit sample count is provided
             shift
             shift
             ;;
@@ -74,9 +79,29 @@ while [[ $# -gt 0 ]]; do
             shift
             shift
             ;;
+        --dataset_size_percentage)
+            DATASET_SIZE_PERCENTAGE="--dataset_size_percentage $2"
+            NUM_TRAIN_SAMPLES=0  # Set to 0 to indicate we're using percentage instead
+            shift
+            shift
+            ;;
+        --use_wandb)
+            USE_WANDB=true
+            shift
+            ;;
+        --wandb_project)
+            WANDB_PROJECT="$2"
+            shift
+            shift
+            ;;
+        --wandb_name)
+            WANDB_NAME="--wandb_name $2"
+            shift
+            shift
+            ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: ./run_nlg_pipeline.sh [--quick] [--use_quantization] [--num_train_samples N] [--num_eval_samples N] [--num_epochs N]"
+            echo "Usage: ./run_nlg_pipeline.sh [--quick] [--use_quantization] [--num_train_samples N] [--num_eval_samples N] [--num_epochs N] [--dataset_size_percentage P] [--use_wandb] [--wandb_project NAME] [--wandb_name NAME]"
             exit 1
             ;;
     esac
@@ -89,12 +114,26 @@ else
     QUANT_FLAG=""
 fi
 
+# Set wandb flag
+if [ "$USE_WANDB" = true ]; then
+    WANDB_FLAG="--use_wandb --wandb_project $WANDB_PROJECT $WANDB_NAME"
+else
+    WANDB_FLAG=""
+fi
+
 echo "===== Multi-Model NLG System Pipeline ====="
 echo "Full pipeline: $FULL_PIPELINE"
 echo "Use quantization: $USE_QUANTIZATION"
-echo "Number of training samples: $NUM_TRAIN_SAMPLES"
+if [ -n "$DATASET_SIZE_PERCENTAGE" ]; then
+    echo "Dataset size percentage: ${DATASET_SIZE_PERCENTAGE#--dataset_size_percentage }"
+else
+    echo "Number of training samples: $NUM_TRAIN_SAMPLES"
+fi
 echo "Number of evaluation samples: $NUM_EVAL_SAMPLES"
 echo "Number of epochs: $NUM_EPOCHS"
+if [ "$USE_WANDB" = true ]; then
+    echo "Using Weights & Biases logging with project: $WANDB_PROJECT"
+fi
 
 # Step 1: Fine-tune models
 echo "===== Step 1: Fine-tuning Models ====="
@@ -104,21 +143,21 @@ echo "Fine-tuning models for all tasks..."
 
 # Summarization
 echo "Fine-tuning models for summarization..."
-python src/fine_tune_models.py --model qwen --task summarization --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
-python src/fine_tune_models.py --model opt --task summarization --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
-python src/fine_tune_models.py --model llama --task summarization --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
+python src/fine_tune_models.py --model qwen --task summarization --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $DATASET_SIZE_PERCENTAGE $QUANT_FLAG $WANDB_FLAG --wandb_name "qwen_summarization"
+python src/fine_tune_models.py --model opt --task summarization --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $DATASET_SIZE_PERCENTAGE $QUANT_FLAG $WANDB_FLAG --wandb_name "opt_summarization"
+python src/fine_tune_models.py --model llama --task summarization --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $DATASET_SIZE_PERCENTAGE $QUANT_FLAG $WANDB_FLAG --wandb_name "llama_summarization"
 
 # Question Answering
 echo "Fine-tuning models for question answering..."
-python src/fine_tune_models.py --model qwen --task qa --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
-python src/fine_tune_models.py --model opt --task qa --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
-python src/fine_tune_models.py --model llama --task qa --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
+python src/fine_tune_models.py --model qwen --task qa --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $DATASET_SIZE_PERCENTAGE $QUANT_FLAG $WANDB_FLAG --wandb_name "qwen_qa"
+python src/fine_tune_models.py --model opt --task qa --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $DATASET_SIZE_PERCENTAGE $QUANT_FLAG $WANDB_FLAG --wandb_name "opt_qa"
+python src/fine_tune_models.py --model llama --task qa --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $DATASET_SIZE_PERCENTAGE $QUANT_FLAG $WANDB_FLAG --wandb_name "llama_qa"
 
 # Paraphrase Generation
 echo "Fine-tuning models for paraphrase generation..."
-python src/fine_tune_models.py --model qwen --task paraphrase --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
-python src/fine_tune_models.py --model opt --task paraphrase --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
-python src/fine_tune_models.py --model llama --task paraphrase --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
+python src/fine_tune_models.py --model qwen --task paraphrase --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $DATASET_SIZE_PERCENTAGE $QUANT_FLAG $WANDB_FLAG --wandb_name "qwen_paraphrase"
+python src/fine_tune_models.py --model opt --task paraphrase --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $DATASET_SIZE_PERCENTAGE $QUANT_FLAG $WANDB_FLAG --wandb_name "opt_paraphrase"
+python src/fine_tune_models.py --model llama --task paraphrase --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $DATASET_SIZE_PERCENTAGE $QUANT_FLAG $WANDB_FLAG --wandb_name "llama_paraphrase"
 
 # Step 2: Evaluate individual models
 echo "===== Step 2: Evaluating Individual Models ====="

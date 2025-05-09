@@ -16,16 +16,19 @@ The system is evaluated on the following tasks and datasets:
 
 1. **Summarization**:
    - Dataset: CNN/DailyMail (news articles → abstractive summaries)
+   - Dataset Size: 287,113 samples
    - Evaluation: ROUGE-L
    - Task: Generate concise and informative summaries of news articles
 
 2. **Question Answering**:
    - Dataset: SQuAD 2.0 (context + question → answer or "no answer")
+   - Dataset Size: 130,319 samples
    - Evaluation: Combination of ROUGE-L and BERTScore
    - Task: Produce free-form answers based on a given context and question
 
 3. **Paraphrase Generation**:
    - Dataset: Quora Question Pairs (questions → paraphrases)
+   - Dataset Size: 404,290 samples
    - Evaluation: Combination of Sacre-BLEU and METEOR
    - Task: Generate semantically equivalent paraphrases for input sentences
 
@@ -151,7 +154,7 @@ The project is organized into the following directories:
 
 2. **Install Dependencies**
    ```bash
-   pip install torch transformers datasets evaluate peft nltk sacrebleu
+   pip install torch transformers datasets evaluate peft nltk sacrebleu wandb
    ```
 
 3. **Set Hugging Face Token**
@@ -162,6 +165,18 @@ The project is organized into the following directories:
 4. **Create Required Directories**
    ```bash
    mkdir -p fine_tuned_models results logs plots data
+   ```
+
+5. **Set Up Weights & Biases (Optional)**
+   ```bash
+   # Login to wandb (you'll be prompted for your API key)
+   wandb login
+
+   # For HPC environments where you can't use the interactive login:
+   export WANDB_API_KEY=your_api_key_here
+
+   # To use wandb in offline mode on HPC (sync results later):
+   export WANDB_MODE=offline
    ```
 
 ## Using the System
@@ -178,8 +193,14 @@ The project is organized into the following directories:
 # Run with quantization
 ./run_nlg_pipeline.sh --use_quantization
 
-# Customize the pipeline
+# Customize the pipeline with specific sample counts
 ./run_nlg_pipeline.sh --num_train_samples 50 --num_eval_samples 20 --num_epochs 2
+
+# Use a percentage of the dataset instead of fixed sample count
+./run_nlg_pipeline.sh --dataset_size_percentage 20 --num_epochs 2
+
+# Enable Weights & Biases logging
+./run_nlg_pipeline.sh --use_wandb --wandb_project "my_project_name"
 ```
 
 ### Option 2: Run the Demo Script
@@ -236,6 +257,63 @@ answer = system.answer_question("Your context...", "Your question...?")
 
 # Paraphrase Generation
 paraphrase = system.generate_paraphrase("Your text to paraphrase...")
+```
+
+### Option 5: Fine-tuning on HPC
+
+For fine-tuning models on an HPC system with A100 GPUs, use the following commands:
+
+```bash
+# Activate the conda environment
+conda activate nlp_project
+
+# Set up wandb in offline mode (recommended for HPC)
+export WANDB_MODE=offline
+export WANDB_API_KEY=your_api_key_here
+
+# Fine-tune Qwen model on summarization task with 20% of the dataset
+python src/fine_tune_models.py \
+  --model qwen \
+  --task summarization \
+  --dataset_size_percentage 20 \
+  --num_epochs 3 \
+  --batch_size 4 \
+  --gradient_accumulation_steps 4 \
+  --use_8bit \
+  --use_wandb \
+  --wandb_project "nlp_project_hpc" \
+  --wandb_name "qwen_summarization_20pct"
+
+# Fine-tune OPT model on question answering task with 20% of the dataset
+python src/fine_tune_models.py \
+  --model opt \
+  --task qa \
+  --dataset_size_percentage 20 \
+  --num_epochs 3 \
+  --batch_size 4 \
+  --gradient_accumulation_steps 4 \
+  --use_8bit \
+  --use_wandb \
+  --wandb_project "nlp_project_hpc" \
+  --wandb_name "opt_qa_20pct"
+
+# Fine-tune LLaMA model on paraphrase generation task with 20% of the dataset
+python src/fine_tune_models.py \
+  --model llama \
+  --task paraphrase \
+  --dataset_size_percentage 20 \
+  --num_epochs 3 \
+  --batch_size 4 \
+  --gradient_accumulation_steps 4 \
+  --use_8bit \
+  --use_wandb \
+  --wandb_project "nlp_project_hpc" \
+  --wandb_name "llama_paraphrase_20pct"
+```
+
+After training, you can sync your offline wandb runs when you have internet access:
+```bash
+wandb sync --sync-all
 ```
 
 ## Future Improvements

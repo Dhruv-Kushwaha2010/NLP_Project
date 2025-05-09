@@ -2,6 +2,7 @@ import os
 import torch
 import argparse
 import logging
+import math
 from datasets import load_dataset
 from transformers import (
     AutoModelForCausalLM,
@@ -17,6 +18,7 @@ from peft import (
     prepare_model_for_kbit_training,
     TaskType
 )
+import wandb
 
 # Configure logging
 logging.basicConfig(
@@ -82,6 +84,13 @@ TASK_CONFIGS = {
     }
 }
 
+# Dictionary to store dataset sizes
+DATASET_SIZES = {
+    "summarization": 287113,  # CNN/DailyMail
+    "qa": 130319,            # SQuAD v2
+    "paraphrase": 404290     # Quora
+}
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Fine-tune language models with PEFT (LoRA)")
     parser.add_argument("--model", type=str, required=True, choices=["qwen", "opt", "llama"],
@@ -94,6 +103,8 @@ def parse_args():
                         help="Number of training samples to use")
     parser.add_argument("--num_eval_samples", type=int, default=20,
                         help="Number of evaluation samples to use")
+    parser.add_argument("--dataset_size_percentage", type=float, default=None,
+                        help="Percentage of dataset to use (0-100). Overrides num_train_samples if provided.")
     parser.add_argument("--lora_r", type=int, default=8,
                         help="LoRA attention dimension")
     parser.add_argument("--lora_alpha", type=int, default=16,
@@ -114,7 +125,23 @@ def parse_args():
                         help="Use 4-bit quantization")
     parser.add_argument("--use_8bit", action="store_true",
                         help="Use 8-bit quantization")
-    return parser.parse_args()
+    parser.add_argument("--use_wandb", action="store_true",
+                        help="Use Weights & Biases for logging")
+    parser.add_argument("--wandb_project", type=str, default="nlp-multi-model",
+                        help="Weights & Biases project name")
+    parser.add_argument("--wandb_name", type=str, default=None,
+                        help="Weights & Biases run name")
+
+    args = parser.parse_args()
+
+    # Print dataset sizes when --help is called
+    if hasattr(args, 'help') and args.help:
+        print("\nDataset Sizes:")
+        print(f"  Summarization (CNN/DailyMail): {DATASET_SIZES['summarization']} samples")
+        print(f"  Question Answering (SQuAD v2): {DATASET_SIZES['qa']} samples")
+        print(f"  Paraphrase Generation (Quora): {DATASET_SIZES['paraphrase']} samples")
+
+    return args
 
 def prepare_dataset_for_summarization(dataset, tokenizer, config, num_train, num_eval):
     def preprocess_function(examples):
@@ -239,6 +266,30 @@ def main(args):
     model_task_dir = f"{args.output_dir}/{args.model}_{args.task}"
     os.makedirs(model_task_dir, exist_ok=True)
 
+    # Initialize wandb if requested
+    if args.use_wandb:
+        wandb_run_name = args.wandb_name or f"{args.model}_{args.task}_lora"
+        wandb.init(
+            project=args.wandb_project,
+            name=wandb_run_name,
+            config={
+                "model": args.model,
+                "task": args.task,
+                "lora_r": args.lora_r,
+                "lora_alpha": args.lora_alpha,
+                "lora_dropout": args.lora_dropout,
+                "learning_rate": args.learning_rate,
+                "batch_size": args.batch_size,
+                "gradient_accumulation_steps": args.gradient_accumulation_steps,
+                "num_epochs": args.num_epochs,
+                "seed": args.seed,
+                "use_4bit": args.use_4bit,
+                "use_8bit": args.use_8bit,
+                "dataset_size_percentage": args.dataset_size_percentage
+            }
+        )
+        logger.info(f"Initialized Weights & Biases logging: {wandb_run_name}")
+
     # Load model configuration
     model_config = MODEL_CONFIGS[args.model]
     task_config = TASK_CONFIGS[args.task]
@@ -321,21 +372,33 @@ def main(args):
             dataset_args["version"] = task_config["dataset_version"]
         dataset = load_dataset(task_config["dataset"], **dataset_args)
 
+    # Calculate number of samples based on percentage if provided
+    num_train_samples = args.num_train_samples
+    if args.dataset_size_percentage is not None:
+        total_dataset_size = DATASET_SIZES[args.task]
+        num_train_samples = int(total_dataset_size * args.dataset_size_percentage / 100)
+        logger.info(f"Using {args.dataset_size_percentage}% of dataset: {num_train_samples} training samples")
+
+    logger.info(f"Total dataset size: {len(dataset)} samples")
+    logger.info(f"Using {num_train_samples} training samples and {args.num_eval_samples} evaluation samples")
+
     # Prepare dataset based on task
     if args.task == "summarization":
         train_dataset, eval_dataset = prepare_dataset_for_summarization(
-            dataset, tokenizer, task_config, args.num_train_samples, args.num_eval_samples
+            dataset, tokenizer, task_config, num_train_samples, args.num_eval_samples
         )
     elif args.task == "qa":
         train_dataset, eval_dataset = prepare_dataset_for_qa(
-            dataset, tokenizer, task_config, args.num_train_samples, args.num_eval_samples
+            dataset, tokenizer, task_config, num_train_samples, args.num_eval_samples
         )
     elif args.task == "paraphrase":
         train_dataset, eval_dataset = prepare_dataset_for_paraphrase(
-            dataset, tokenizer, task_config, args.num_train_samples, args.num_eval_samples
+            dataset, tokenizer, task_config, num_train_samples, args.num_eval_samples
         )
 
-    # Configure training arguments
+    # Configure training arguments with wandb integration if requested
+    report_to = ["wandb"] if args.use_wandb else "none"
+
     training_args = TrainingArguments(
         output_dir=model_task_dir,
         do_eval=True,
@@ -352,7 +415,7 @@ def main(args):
         logging_steps=10,
         save_total_limit=1,
         push_to_hub=False,
-        report_to="none"
+        report_to=report_to
     )
 
     # Initialize trainer
@@ -372,6 +435,10 @@ def main(args):
     logger.info(f"Saving model to {model_task_dir}")
     model.save_pretrained(model_task_dir)
     tokenizer.save_pretrained(model_task_dir)
+
+    # Finish wandb run if active
+    if args.use_wandb and wandb.run is not None:
+        wandb.finish()
 
     logger.info("Fine-tuning complete!")
 
