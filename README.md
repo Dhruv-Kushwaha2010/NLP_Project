@@ -72,7 +72,9 @@ Memory usage and inference speed were optimized through several techniques:
 
 ## Project Structure
 
-### Core Files
+The project is organized into the following directories:
+
+### Source Code (`src/`)
 
 - `device_utils.py`: Utilities for device selection (CUDA > MPS > CPU)
 - `load_models.py`: Functions to load the base models
@@ -82,13 +84,25 @@ Memory usage and inference speed were optimized through several techniques:
 - `multi_model_system.py`: Implementation of three multi-model architectures
 - `unified_api.py`: Unified API for all three tasks
 - `compare_systems.py`: Script to compare different systems and generate reports
+- `run_best_pipeline.py`: Script to run the best pipeline for all tasks
+- `demo_simplified.py`: Simplified demo script to test the system
+
+### Configuration (`config/`)
+
+- `set_hf_token.py`: Script to set your Hugging Face token for accessing LLaMA model
+- `sample_inputs.json`: Sample inputs for testing the system
+
+### Results and Outputs
+
+- `results/`: JSON files with evaluation results
+- `plots/`: Visualization plots for model comparisons
+- `logs/`: Log files from various components
+- `fine_tuned_models/`: Directory containing fine-tuned models
 
 ### Scripts
 
 - `run_nlg_pipeline.sh`: Streamlined pipeline script to run the entire system
-- `demo_simplified.py`: Simplified demo script to test the system
-- `run_best_pipeline.py`: Script to run the best pipeline for all tasks
-- `set_hf_token.py`: Script to set your Hugging Face token for accessing LLaMA model
+- `run_demo.sh`: Script to run the demo with various options
 
 ## Results and Performance
 
@@ -135,7 +149,12 @@ Memory usage and inference speed were optimized through several techniques:
 
 3. **Set Hugging Face Token**
    ```bash
-   python set_hf_token.py YOUR_HUGGINGFACE_TOKEN
+   python config/set_hf_token.py YOUR_HUGGINGFACE_TOKEN
+   ```
+
+4. **Create Required Directories**
+   ```bash
+   mkdir -p fine_tuned_models results logs plots data
    ```
 
 ## Using the System
@@ -160,29 +179,26 @@ Memory usage and inference speed were optimized through several techniques:
 
 ```bash
 # Run all tasks with example inputs
-python demo_simplified.py
+./run_demo.sh
 
 # Run a specific task
-python demo_simplified.py --task summarize
-python demo_simplified.py --task qa
-python demo_simplified.py --task paraphrase
+./run_demo.sh --task summarize
+./run_demo.sh --task qa
+./run_demo.sh --task paraphrase
 
 # Run with custom input
-python demo_simplified.py --task summarize --input "Your text to summarize..."
-python demo_simplified.py --task qa --input "Your context..." --question "Your question...?"
-python demo_simplified.py --task paraphrase --input "Your text to paraphrase..."
+./run_demo.sh --task summarize --input "Your text to summarize..."
+./run_demo.sh --task qa --input "Your context..." --question "Your question...?"
+./run_demo.sh --task paraphrase --input "Your text to paraphrase..."
 
-# Run with input from a file
-python demo_simplified.py --input_file sample_inputs.json
-
-# Save output to a file
-python demo_simplified.py --output_file results.json
+# Run with quantization
+./run_demo.sh --use_quantization
 ```
 
 ### Option 3: Use the Unified API in Your Code
 
 ```python
-from unified_api import UnifiedNLGSystem
+from src.unified_api import UnifiedNLGSystem
 
 # Initialize the system
 system = UnifiedNLGSystem()

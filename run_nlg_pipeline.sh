@@ -33,6 +33,9 @@ export TOKENIZERS_PARALLELISM=false
 # Create directories
 mkdir -p fine_tuned_models
 mkdir -p results
+mkdir -p logs
+mkdir -p plots
+mkdir -p data
 
 # Parse command line arguments
 FULL_PIPELINE=true
@@ -101,21 +104,21 @@ echo "Fine-tuning models for all tasks..."
 
 # Summarization
 echo "Fine-tuning models for summarization..."
-python fine_tune_models.py --model qwen --task summarization --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
-python fine_tune_models.py --model opt --task summarization --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
-python fine_tune_models.py --model llama --task summarization --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
+python src/fine_tune_models.py --model qwen --task summarization --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
+python src/fine_tune_models.py --model opt --task summarization --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
+python src/fine_tune_models.py --model llama --task summarization --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
 
 # Question Answering
 echo "Fine-tuning models for question answering..."
-python fine_tune_models.py --model qwen --task qa --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
-python fine_tune_models.py --model opt --task qa --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
-python fine_tune_models.py --model llama --task qa --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
+python src/fine_tune_models.py --model qwen --task qa --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
+python src/fine_tune_models.py --model opt --task qa --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
+python src/fine_tune_models.py --model llama --task qa --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
 
 # Paraphrase Generation
 echo "Fine-tuning models for paraphrase generation..."
-python fine_tune_models.py --model qwen --task paraphrase --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
-python fine_tune_models.py --model opt --task paraphrase --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
-python fine_tune_models.py --model llama --task paraphrase --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
+python src/fine_tune_models.py --model qwen --task paraphrase --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
+python src/fine_tune_models.py --model opt --task paraphrase --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
+python src/fine_tune_models.py --model llama --task paraphrase --num_train_samples $NUM_TRAIN_SAMPLES --num_epochs $NUM_EPOCHS $QUANT_FLAG
 
 # Step 2: Evaluate individual models
 echo "===== Step 2: Evaluating Individual Models ====="
@@ -125,21 +128,21 @@ echo "Evaluating models for all tasks..."
 
 # Summarization
 echo "Evaluating models for summarization..."
-python evaluate_models.py --model qwen --task summarization --model_path fine_tuned_models/qwen_summarization --num_samples $NUM_EVAL_SAMPLES --output_file results/qwen_summarization.json $QUANT_FLAG
-python evaluate_models.py --model opt --task summarization --model_path fine_tuned_models/opt_summarization --num_samples $NUM_EVAL_SAMPLES --output_file results/opt_summarization.json $QUANT_FLAG
-python evaluate_models.py --model llama --task summarization --model_path fine_tuned_models/llama_summarization --num_samples $NUM_EVAL_SAMPLES --output_file results/llama_summarization.json $QUANT_FLAG
+python src/evaluate_models.py --model qwen --task summarization --model_path fine_tuned_models/qwen_summarization --num_samples $NUM_EVAL_SAMPLES --output_file results/qwen_summarization.json $QUANT_FLAG
+python src/evaluate_models.py --model opt --task summarization --model_path fine_tuned_models/opt_summarization --num_samples $NUM_EVAL_SAMPLES --output_file results/opt_summarization.json $QUANT_FLAG
+python src/evaluate_models.py --model llama --task summarization --model_path fine_tuned_models/llama_summarization --num_samples $NUM_EVAL_SAMPLES --output_file results/llama_summarization.json $QUANT_FLAG
 
 # Question Answering
 echo "Evaluating models for question answering..."
-python evaluate_models.py --model qwen --task qa --model_path fine_tuned_models/qwen_qa --num_samples $NUM_EVAL_SAMPLES --output_file results/qwen_qa.json $QUANT_FLAG
-python evaluate_models.py --model opt --task qa --model_path fine_tuned_models/opt_qa --num_samples $NUM_EVAL_SAMPLES --output_file results/opt_qa.json $QUANT_FLAG
-python evaluate_models.py --model llama --task qa --model_path fine_tuned_models/llama_qa --num_samples $NUM_EVAL_SAMPLES --output_file results/llama_qa.json $QUANT_FLAG
+python src/evaluate_models.py --model qwen --task qa --model_path fine_tuned_models/qwen_qa --num_samples $NUM_EVAL_SAMPLES --output_file results/qwen_qa.json $QUANT_FLAG
+python src/evaluate_models.py --model opt --task qa --model_path fine_tuned_models/opt_qa --num_samples $NUM_EVAL_SAMPLES --output_file results/opt_qa.json $QUANT_FLAG
+python src/evaluate_models.py --model llama --task qa --model_path fine_tuned_models/llama_qa --num_samples $NUM_EVAL_SAMPLES --output_file results/llama_qa.json $QUANT_FLAG
 
 # Paraphrase Generation
 echo "Evaluating models for paraphrase generation..."
-python evaluate_models.py --model qwen --task paraphrase --model_path fine_tuned_models/qwen_paraphrase --num_samples $NUM_EVAL_SAMPLES --output_file results/qwen_paraphrase.json $QUANT_FLAG
-python evaluate_models.py --model opt --task paraphrase --model_path fine_tuned_models/opt_paraphrase --num_samples $NUM_EVAL_SAMPLES --output_file results/opt_paraphrase.json $QUANT_FLAG
-python evaluate_models.py --model llama --task paraphrase --model_path fine_tuned_models/llama_paraphrase --num_samples $NUM_EVAL_SAMPLES --output_file results/llama_paraphrase.json $QUANT_FLAG
+python src/evaluate_models.py --model qwen --task paraphrase --model_path fine_tuned_models/qwen_paraphrase --num_samples $NUM_EVAL_SAMPLES --output_file results/qwen_paraphrase.json $QUANT_FLAG
+python src/evaluate_models.py --model opt --task paraphrase --model_path fine_tuned_models/opt_paraphrase --num_samples $NUM_EVAL_SAMPLES --output_file results/opt_paraphrase.json $QUANT_FLAG
+python src/evaluate_models.py --model llama --task paraphrase --model_path fine_tuned_models/llama_paraphrase --num_samples $NUM_EVAL_SAMPLES --output_file results/llama_paraphrase.json $QUANT_FLAG
 
 # Step 3: Run multi-model systems
 echo "===== Step 3: Running Multi-Model Systems ====="
@@ -149,27 +152,27 @@ echo "Running multi-model systems for all tasks..."
 
 # Dynamic Decision System
 echo "Running Dynamic Decision System..."
-python multi_model_system.py --models_dir fine_tuned_models --system_type dynamic --task all --num_samples $NUM_EVAL_SAMPLES --output_file results/dynamic_all.json $QUANT_FLAG
+python src/multi_model_system.py --models_dir fine_tuned_models --system_type dynamic --task all --num_samples $NUM_EVAL_SAMPLES --output_file results/dynamic_all.json $QUANT_FLAG
 
 # Ensemble System
 echo "Running Ensemble System..."
-python multi_model_system.py --models_dir fine_tuned_models --system_type ensemble --task all --num_samples $NUM_EVAL_SAMPLES --output_file results/ensemble_all.json $QUANT_FLAG
+python src/multi_model_system.py --models_dir fine_tuned_models --system_type ensemble --task all --num_samples $NUM_EVAL_SAMPLES --output_file results/ensemble_all.json $QUANT_FLAG
 
 # Pipeline System
 echo "Running Pipeline System..."
-python multi_model_system.py --models_dir fine_tuned_models --system_type pipeline --task all --num_samples $NUM_EVAL_SAMPLES --output_file results/pipeline_all.json $QUANT_FLAG
+python src/multi_model_system.py --models_dir fine_tuned_models --system_type pipeline --task all --num_samples $NUM_EVAL_SAMPLES --output_file results/pipeline_all.json $QUANT_FLAG
 
 # Step 4: Compare systems and generate final report
 echo "===== Step 4: Comparing Systems and Generating Final Report ====="
 
 echo "Generating final comparison report..."
-python compare_systems.py --results_dir results --output_file results/final_comparison.json
+python src/compare_systems.py --results_dir results --output_file results/final_comparison.json
 
 # Step 5: Run the best pipeline on sample inputs
 echo "===== Step 5: Running Best Pipeline on Sample Inputs ====="
 
 echo "Running best pipeline on sample inputs..."
-python run_best_pipeline.py --input_file sample_inputs.json --output_file best_pipeline_results.json $QUANT_FLAG
+python src/run_best_pipeline.py --input_file config/sample_inputs.json --output_file results/best_pipeline_results.json $QUANT_FLAG
 
 echo "===== Pipeline Complete ====="
 echo "Results are saved in the 'results' directory"
