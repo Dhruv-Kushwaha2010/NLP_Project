@@ -312,6 +312,11 @@ def prepare_dataset_for_paraphrase(dataset, tokenizer, config, num_train, num_ev
 def main(args):
     set_seed(args.seed)
 
+    # Disable Sliding Window Attention for Qwen via environment variable
+    if args.model == "qwen":
+        os.environ["DISABLE_SLIDING_WINDOW_ATTENTION"] = "true"
+        logger.info("Disabled Sliding Window Attention for Qwen via environment variable")
+
     # Setup CUDA libraries for HPC
     setup_cuda_libraries()
 
