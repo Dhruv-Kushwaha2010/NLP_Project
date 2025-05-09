@@ -21,16 +21,31 @@ from peft import (
 )
 import wandb
 
+# Add environment variable to disable bitsandbytes welcome message
+os.environ["BITSANDBYTES_NOWELCOME"] = "1"
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("fine_tuning.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
 # Fix for bitsandbytes on HPC systems
 def setup_cuda_libraries():
     """Setup CUDA libraries for bitsandbytes on HPC systems."""
     # Common CUDA library paths on HPC systems
     cuda_paths = [
         "/usr/local/cuda/lib64",
+        "/usr/local/cuda-12.4/targets/x86_64-linux/lib",  # Updated for CUDA 12.4
         "/usr/local/cuda-12/lib64",
+        "/usr/local/cuda-11.8/targets/x86_64-linux/lib",  # Updated for CUDA 11.8
         "/usr/local/cuda-11/lib64",
         "/usr/local/cuda-12.0/lib64",
-        "/usr/local/cuda-11.8/lib64",
         "/usr/local/cuda-11.7/lib64",
         "/usr/local/cuda-11.6/lib64",
         "/opt/cuda/lib64",
@@ -66,17 +81,6 @@ except RuntimeError as e:
         setup_cuda_libraries()
     BITSANDBYTES_AVAILABLE = False
     logger.warning("bitsandbytes CUDA setup failed, quantization will be disabled")
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("fine_tuning.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
 
 # Define model configurations
 MODEL_CONFIGS = {
@@ -309,6 +313,9 @@ def prepare_dataset_for_paraphrase(dataset, tokenizer, config, num_train, num_ev
 def main(args):
     set_seed(args.seed)
 
+    # Setup CUDA libraries for HPC
+    setup_cuda_libraries()
+
     # Create output directory
     model_task_dir = f"{args.output_dir}/{args.model}_{args.task}"
     os.makedirs(model_task_dir, exist_ok=True)
@@ -381,6 +388,18 @@ def main(args):
         **model_kwargs
     )
 
+    # Disable Sliding Window Attention for Qwen model
+    if args.model == "qwen":
+        logger.info("Disabling Sliding Window Attention for Qwen model")
+        if hasattr(model.config, "sliding_window"):
+            model.config.sliding_window = None
+            logger.info("Disabled sliding_window in model config")
+        # Also try to disable it in the model's attention modules
+        for module in model.modules():
+            if hasattr(module, "sliding_window"):
+                module.sliding_window = None
+                logger.info("Disabled sliding_window in attention module")
+
     # Prepare model for k-bit training if using quantization
     if args.use_4bit or args.use_8bit:
         model = prepare_model_for_kbit_training(model)
@@ -396,8 +415,30 @@ def main(args):
     )
 
     # Apply LoRA to model
-    model = get_peft_model(model, lora_config)
-    model.print_trainable_parameters()
+    try:
+        model = get_peft_model(model, lora_config)
+        model.print_trainable_parameters()
+    except RuntimeError as e:
+        if "CUDA Setup failed" in str(e) or "bitsandbytes" in str(e):
+            logger.warning("CUDA setup for bitsandbytes failed. Using alternative approach.")
+            # Set environment variable to skip bitsandbytes import in PEFT
+            os.environ["PEFT_SKIP_BNB_IMPORT"] = "1"
+
+            # Try again with the environment variable set
+            model = get_peft_model(model, lora_config)
+
+            # Print trainable parameters manually
+            trainable_params = 0
+            all_param = 0
+            for _, param in model.named_parameters():
+                all_param += param.numel()
+                if param.requires_grad:
+                    trainable_params += param.numel()
+            logger.info(
+                f"trainable params: {trainable_params} || all params: {all_param} || trainable%: {100 * trainable_params / all_param}"
+            )
+        else:
+            raise e
 
     # Load and prepare dataset
     logger.info(f"Loading dataset: {task_config['dataset']}")
