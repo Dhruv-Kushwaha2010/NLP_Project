@@ -3,6 +3,7 @@ import torch
 import argparse
 import logging
 import math
+import sys
 from datasets import load_dataset
 from transformers import (
     AutoModelForCausalLM,
@@ -19,6 +20,52 @@ from peft import (
     TaskType
 )
 import wandb
+
+# Fix for bitsandbytes on HPC systems
+def setup_cuda_libraries():
+    """Setup CUDA libraries for bitsandbytes on HPC systems."""
+    # Common CUDA library paths on HPC systems
+    cuda_paths = [
+        "/usr/local/cuda/lib64",
+        "/usr/local/cuda-12/lib64",
+        "/usr/local/cuda-11/lib64",
+        "/usr/local/cuda-12.0/lib64",
+        "/usr/local/cuda-11.8/lib64",
+        "/usr/local/cuda-11.7/lib64",
+        "/usr/local/cuda-11.6/lib64",
+        "/opt/cuda/lib64",
+    ]
+
+    # Add paths to LD_LIBRARY_PATH if they exist
+    ld_library_path = os.environ.get("LD_LIBRARY_PATH", "")
+    new_paths = []
+
+    for path in cuda_paths:
+        if os.path.exists(path) and path not in ld_library_path:
+            new_paths.append(path)
+
+    if new_paths:
+        os.environ["LD_LIBRARY_PATH"] = ld_library_path + ":" + ":".join(new_paths)
+        logger.info(f"Added CUDA paths to LD_LIBRARY_PATH: {new_paths}")
+
+        # This is needed because the environment variables are read at process start
+        # We need to restart the process for the changes to take effect
+        logger.info("Restarting process to apply LD_LIBRARY_PATH changes...")
+        os.execv(sys.executable, ['python'] + sys.argv)
+
+# Try to import bitsandbytes, but don't fail if it's not available
+try:
+    import bitsandbytes as bnb
+    BITSANDBYTES_AVAILABLE = True
+except ImportError:
+    BITSANDBYTES_AVAILABLE = False
+    logger.warning("bitsandbytes not available, quantization will be disabled")
+except RuntimeError as e:
+    if "CUDA Setup failed" in str(e):
+        logger.warning("CUDA setup for bitsandbytes failed. Attempting to fix...")
+        setup_cuda_libraries()
+    BITSANDBYTES_AVAILABLE = False
+    logger.warning("bitsandbytes CUDA setup failed, quantization will be disabled")
 
 # Configure logging
 logging.basicConfig(
