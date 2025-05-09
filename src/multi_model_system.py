@@ -12,6 +12,9 @@ from evaluate import load as load_metric
 import nltk
 from typing import List, Dict, Any, Tuple, Optional
 
+# Import the Adaptive Fusion module
+from adaptive_fusion import AdaptiveModelFusion
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -105,7 +108,7 @@ def parse_args():
     parser.add_argument("--models_dir", type=str, required=True,
                         help="Directory containing fine-tuned models")
     parser.add_argument("--system_type", type=str, required=True,
-                        choices=["dynamic", "ensemble", "pipeline"],
+                        choices=["dynamic", "ensemble", "pipeline", "adaptive_fusion"],
                         help="Type of multi-model system")
     parser.add_argument("--task", type=str, required=True,
                         choices=["summarization", "qa", "paraphrase", "all"],
@@ -116,6 +119,8 @@ def parse_args():
                         help="File to save evaluation results")
     parser.add_argument("--use_quantization", action="store_true",
                         help="Use 8-bit quantization for all models")
+    parser.add_argument("--learning_rate", type=float, default=0.1,
+                        help="Learning rate for adaptive fusion (only used with adaptive_fusion system)")
     parser.add_argument("--seed", type=int, default=42,
                         help="Random seed")
     return parser.parse_args()
@@ -570,6 +575,9 @@ def main(args):
         system = EnsembleSystem(model_manager)
     elif args.system_type == "pipeline":
         system = PipelineSystem(model_manager)
+    elif args.system_type == "adaptive_fusion":
+        # Initialize the Adaptive Fusion system with the specified learning rate
+        system = AdaptiveModelFusion(model_manager, learning_rate=args.learning_rate)
 
     # Determine which tasks to evaluate
     tasks = ["summarization", "qa", "paraphrase"] if args.task == "all" else [args.task]
@@ -655,6 +663,20 @@ def main(args):
                             task_config["prompt_template"]
                         )
                         model_usage_counts[selected_model] += 1
+                elif args.system_type == "adaptive_fusion":
+                    # For adaptive fusion system
+                    prediction, inference_time = system.generate(
+                        task,
+                        input_text,
+                        task_config["prompt_template"]
+                    )
+
+                    # Provide feedback to the system (using a placeholder score of 0.5)
+                    # In a real-world scenario, this would be based on actual feedback
+                    if i > 0 and i % 5 == 0:  # Update every 5 samples
+                        # Use the best model for this task as a placeholder
+                        best_model = "qwen" if task == "summarization" or task == "qa" else "llama"
+                        system.update_feedback(task, input_text, best_model, 0.5)
                 else:
                     # For ensemble and pipeline systems
                     prediction, inference_time = system.generate(

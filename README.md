@@ -33,7 +33,7 @@ The system is evaluated on the following tasks and datasets:
 
 ### Multi-Model Architectures
 
-We implemented three different multi-model architectures to optimize performance across tasks:
+We implemented four different multi-model architectures to optimize performance across tasks:
 
 1. **Dynamic Decision System**:
    - Selects the most appropriate model for each input based on task-specific heuristics
@@ -52,6 +52,12 @@ We implemented three different multi-model architectures to optimize performance
    - Crafts task-specific prompts to improve output quality
    - Uses Qwen model for all tasks for simplicity and reliability
    - Implements robust error handling to ensure system stability
+
+4. **Adaptive Model Fusion** (Novel Approach):
+   - Dynamically adjusts fusion weights based on input characteristics and historical performance
+   - Uses a combination of input feature analysis, performance history, and confidence-based weighting
+   - Continuously learns and adapts to improve performance over time
+   - Implements a feedback mechanism to update weights based on output quality
 
 ### Parameter-Efficient Fine-Tuning
 
@@ -103,6 +109,7 @@ The project is organized into the following directories:
 
 - `run_nlg_pipeline.sh`: Streamlined pipeline script to run the entire system
 - `run_demo.sh`: Script to run the demo with various options
+- `run_adaptive_fusion.sh`: Script to run the novel Adaptive Model Fusion system
 
 ## Results and Performance
 
@@ -195,7 +202,25 @@ The project is organized into the following directories:
 ./run_demo.sh --use_quantization
 ```
 
-### Option 3: Use the Unified API in Your Code
+### Option 3: Run the Adaptive Fusion System
+
+```bash
+# Run on all tasks
+./run_adaptive_fusion.sh
+
+# Run on a specific task
+./run_adaptive_fusion.sh --task summarization
+./run_adaptive_fusion.sh --task qa
+./run_adaptive_fusion.sh --task paraphrase
+
+# Customize the parameters
+./run_adaptive_fusion.sh --num_samples 50 --learning_rate 0.2
+
+# Run with quantization
+./run_adaptive_fusion.sh --use_quantization
+```
+
+### Option 4: Use the Unified API in Your Code
 
 ```python
 from src.unified_api import UnifiedNLGSystem
@@ -222,6 +247,44 @@ paraphrase = system.generate_paraphrase("Your text to paraphrase...")
 5. **Hybrid Approaches**: Combine the strengths of different multi-model architectures
 6. **Web Interface**: Create a simple web interface for the system
 7. **Deployment**: Prepare the system for deployment in a production environment
+
+## Project Evaluation Rubrics
+
+The project will be evaluated based on the following criteria:
+
+1. **Final Project Presentation (5 marks)**
+   - Should be self-sufficient and comprehensive
+   - Maximum 25 slides
+   - 7 minutes for presentation
+   - Honestly mention the contribution of each member
+
+2. **Code and Data (5 marks)**
+   - Commit to GitHub
+   - Well-organized and documented
+
+3. **Report (5 marks)**
+   - Follow the LaTeX template provided in `report/report_template.tex`
+   - Should not exceed 4 pages (2 marks deducted if exceeded)
+   - Include problem statement, proposed solution, experiments, results
+   - Cite references (no page limit for references)
+   - Include GitHub link
+
+4. **Significant Contribution and Novelty (5 marks)**
+   - Demonstrate novel approaches in the project
+   - Show significant contributions from all team members
+
+   Our novel contribution is the **Adaptive Model Fusion** approach, which:
+   - Dynamically adjusts fusion weights based on input characteristics and historical performance
+   - Uses a combination of input feature analysis, performance history, and confidence-based weighting
+   - Continuously learns and adapts to improve performance over time
+   - Implements a feedback mechanism to update weights based on output quality
+   - Combines the strengths of all three traditional approaches (Dynamic Decision, Ensemble, Pipeline)
+
+### Viva Format
+- Duration: 10 minutes
+  - 7 minutes for project presentation
+  - 2 minutes for question answering
+  - 1 minute for report, code, and data inspection
 
 ## References
 

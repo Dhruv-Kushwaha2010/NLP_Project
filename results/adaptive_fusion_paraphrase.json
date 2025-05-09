@@ -1,0 +1,11 @@
+{
+  "paraphrase": {
+    "system_type": "adaptive_fusion",
+    "task": "paraphrase",
+    "num_samples": 5,
+    "avg_inference_time": 34.03206496238708,
+    "metrics": {
+      "sacrebleu": 0.03959430845161135
+    }
+  }
+}
