@@ -1,0 +1,432 @@
+\documentclass{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{default}
+\useinnertheme{circles}
+\useoutertheme{infolines}
+
+\usepackage[T1]{fontenc} % Added for better font encoding
+\usepackage{lmodern}     % Added for modern scalable fonts
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{amsmath}
+% hyperref is usually loaded by beamer, providing \url command
+
+% Define colors for code listings
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+% Code listing style
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize, % Default basic style
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2
+}
+\lstset{style=mystyle}
+
+\title[Multi-Model NLG System]{Multi-Model System for Optimized Natural Language Generation}
+\author[Harry Potter and the Goblet of Pretrained Models]{Dhruv Kushwaha (2021MT10235) \and Tarun Ajay Singh (2021ME10272)}
+\institute{ELL884 DEEP LEARNING FOR NATURAL LANGUAGE PROCESSING\\Sem-II, 2024-25}
+\date{May 10, 2025} % Or \date{\today} if you want it to update
+
+\begin{document}
+
+\begin{frame}
+\titlepage
+\end{frame}
+
+\begin{frame}{Outline}
+\tableofcontents
+\end{frame}
+
+\section{Introduction}
+
+\begin{frame}{Introduction \& Project Goals}
+\begin{columns}[T] % Added [T] for top alignment if needed
+\column{0.5\textwidth}
+\textbf{Problem Statement:}
+\begin{itemize}
+    \item Most NLG systems use a single model for all tasks
+    \item Different tasks require different capabilities
+    \item Our approach: Multi-model system combining strengths
+    \item Models: Qwen2.5-1.5B, OPT-1.3B, LLaMA-3.2 1B
+\end{itemize}
+
+\column{0.5\textwidth}
+\textbf{Project Goals:}
+\begin{itemize}
+    \item Implement different architectures:
+    \begin{itemize}
+        \item Dynamic Decision System
+        \item Ensemble System
+        \item Pipeline System
+        \item \textbf{Adaptive Model Fusion (Novel)}
+    \end{itemize}
+    \item Optimize for performance and efficiency
+\end{itemize}
+\end{columns}
+\end{frame}
+
+\section{Methodology}
+
+\begin{frame}{Datasets}
+\textbf{Datasets Used:}
+\begin{scriptsize}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Task} & \textbf{Dataset} & \textbf{Metrics} \\
+\midrule
+Summarization & CNN/DailyMail & ROUGE-L \\
+Question Answering & SQuAD 2.0 & ROUGE-L, BERTScore \\
+Paraphrase Generation & Quora Question Pairs & SacreBLEU \\
+\bottomrule
+\end{tabular}
+\end{scriptsize}
+
+\vspace{1em} % Add some vertical space
+
+\begin{itemize}
+    \item Fine-tuned on 0.1\% of each dataset
+    \item Limited by computational constraints
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Models & Performance}
+\textbf{Models Employed:}
+\begin{itemize}
+    \item \textbf{Qwen2.5-1.5B}: For summarization
+    \item \textbf{OPT-1.3B}: For question answering
+    \item \textbf{LLaMA-3.2 1B}: For paraphrasing
+\end{itemize}
+
+\vspace{1em} % Add some vertical space
+
+\textbf{Model Parameters and Inference Time:}
+\begin{scriptsize}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Model} & \textbf{Parameters} & \textbf{Inference Time} \\
+\midrule
+Qwen2.5-1.5B & 1.5B & 0.97s \\
+OPT-1.3B & 1.3B & 4.36s \\
+LLaMA-3.2 1B & 1.0B & 1.37s \\
+\bottomrule
+\end{tabular}
+\end{scriptsize}
+\end{frame}
+
+
+\begin{frame}{Parameter-Efficient Fine-Tuning}
+\begin{itemize}
+    \item Used Low-Rank Adaptation (LoRA) for all models
+    \item LoRA configuration:
+    \begin{itemize}
+        \item Rank (r): 8
+        \item Alpha: 16
+        \item Dropout: 0.05
+    \end{itemize}
+    \item Training parameters:
+    \begin{itemize}
+        \item Learning rate: 0.0005
+        \item Batch size: 1 (with gradient accumulation steps of 4)
+        \item Epochs: 1
+    \end{itemize}
+    \item Benefits:
+    \begin{itemize}
+        \item Reduces memory requirements significantly
+        \item Faster training compared to full fine-tuning
+        \item Comparable performance with fraction of parameters
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}{System Architectures}
+\begin{columns}[T]
+\column{0.5\textwidth}
+\textbf{Dynamic Decision System}
+\begin{itemize}
+    \item Selects best model based on input features
+    \item Task-specific heuristics
+    \item Moderate inference time
+\end{itemize}
+
+\textbf{Ensemble System}
+\begin{itemize}
+    \item Combines predictions from multiple models
+    \item Robust to model failures
+    \item Highest memory usage
+\end{itemize}
+\column{0.5\textwidth}
+\textbf{Pipeline System}
+\begin{itemize}
+    \item Specialized prompting techniques
+    \item Single model for simplicity
+    \item Good balance of performance and efficiency
+\end{itemize}
+
+\textbf{Adaptive Model Fusion (Novel)}
+\begin{itemize}
+    \item Dynamically adjusts fusion weights
+    \item Learns from historical performance
+    \item Adapts to different inputs
+\end{itemize}
+\end{columns}
+\end{frame}
+
+\begin{frame}[fragile]{Adaptive Model Fusion (Our Novel Contribution)}
+\begin{columns}[T]
+\column{0.5\textwidth}
+\textbf{Key Innovations:}
+\begin{itemize}
+    \item Dynamically adjusts fusion weights based on:
+    \begin{itemize}
+        \item Input characteristics
+        \item Historical performance
+        \item Model confidence
+    \end{itemize}
+    \item Learns and adapts over time
+    \item Combines strengths of all approaches
+    \item Handles diverse input types
+\end{itemize}
+\column{0.5\textwidth}
+% Using \tiny for the code listing as in the original attempt
+\begin{lstlisting}[language=Python, basicstyle=\ttfamily\tiny, numbers=left, numberstyle=\tiny\color{codegray}, breaklines=true, backgroundcolor=\color{backcolour}, commentstyle=\color{codegreen}, keywordstyle=\color{magenta}, stringstyle=\color{codepurple}]
+def adaptive_fusion(input_text, task, models, history):
+    # Extract input features
+    features = extract_features(input_text)
+
+    # Calculate initial weights based on features
+    weights = calculate_initial_weights(features, task)
+
+    # Adjust weights based on historical performance
+    if history:
+        weights = adjust_weights_from_history(
+            weights, history, features
+        )
+
+    # Generate outputs from all models
+    outputs = []
+    for model in models:
+        output = model.generate(input_text)
+        confidence = model.get_confidence(output)
+        outputs.append((output, confidence))
+
+    # Apply weighted fusion
+    final_output = apply_weighted_fusion(
+        outputs, weights
+    )
+
+    return final_output
+\end{lstlisting}
+\end{columns}
+\end{frame}
+
+\section{Results}
+
+\begin{frame}{System Efficiency Comparison}
+\begin{table}
+\centering
+\begin{tabular}{@{}llr@{}}
+\toprule
+\textbf{Model} & \textbf{Task} & \textbf{Inference Time (s)} \\
+\midrule
+Qwen & Summarization & 0.9738 \\
+OPT & QA & 4.3574 \\
+LLaMA & Paraphrase & 1.3744 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Key Observations:}
+\begin{itemize}
+    \item Qwen is the fastest model (0.9738 seconds/sample)
+    \item OPT is the slowest (4.3574 seconds/sample)
+    \item Different models offer different efficiency trade-offs
+    \item Due to computational resource constraints, we were unable to run our experiments on HPC systems
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Sample Outputs}
+\begin{columns}[T]
+\column{0.5\textwidth}
+\textbf{Summarization (Qwen):}
+\begin{scriptsize} % scriptsize for this block
+\textbf{Input:} Jarryd Hayne's move to the NFL is a boost for rugby league in the United States...
+
+\textbf{Summary:} Jarryd Hayne, an Australian rugby league player, has signed a three-year contract with the San Francisco 49ers after quitting the National Rugby League. Peter Illfield believes this move will boost rugby league in the United States.
+\end{scriptsize}
+
+\column{0.5\textwidth}
+\textbf{Paraphrase Generation (LLaMA):}
+\begin{scriptsize} % scriptsize for this block
+\textbf{Original:} What does it mean when someone has "free domain" over something?
+
+\textbf{Paraphrase:} What is the significance when an individual possesses "free domain" regarding an item?
+
+\textbf{Original:} How do I increase the fan speed of a cooling pad?
+
+\textbf{Paraphrase:} In what way can I enhance the velocity of a cooling pad's fan?
+\end{scriptsize}
+\end{columns}
+\end{frame}
+
+\begin{frame}{System Comparison}
+\begin{table}
+\centering
+\footnotesize % Use footnotesize for the table to help content fit
+\begin{tabular}{@{}p{0.23\textwidth}p{0.36\textwidth}p{0.36\textwidth}@{}} % Adjusted widths slightly
+\toprule
+\textbf{System} & \textbf{Advantages} & \textbf{Disadvantages} \\
+\midrule
+Dynamic Decision &
+\begin{itemize}\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}\setlength{\parsep}{0pt}
+    \item Task-specific optimization
+    \item Moderate inference time
+\end{itemize} &
+\begin{itemize}\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}\setlength{\parsep}{0pt}
+    \item Complex decision logic
+    \item Requires all models
+\end{itemize} \\
+\midrule
+Ensemble &
+\begin{itemize}\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}\setlength{\parsep}{0pt}
+    \item Robust to model failures
+    \item Potentially higher quality
+\end{itemize} &
+\begin{itemize}\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}\setlength{\parsep}{0pt}
+    \item Slowest inference time
+    \item Highest memory usage
+\end{itemize} \\
+\midrule
+Pipeline &
+\begin{itemize}\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}\setlength{\parsep}{0pt}
+    \item Good performance on summarization
+    \item Simplified architecture
+\end{itemize} &
+\begin{itemize}\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}\setlength{\parsep}{0pt}
+    \item Limited to single model capabilities
+    \item Less flexible
+\end{itemize} \\
+\midrule
+Adaptive Fusion &
+\begin{itemize}\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}\setlength{\parsep}{0pt}
+    \item Adapts to different inputs
+    \item Learns from history
+\end{itemize} &
+\begin{itemize}\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}\setlength{\parsep}{0pt}
+    \item Complex implementation
+    \item Requires training data
+\end{itemize} \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{frame}
+
+\section{Discussion}
+
+\begin{frame}{Key Innovations}
+\begin{itemize}
+    \item \textbf{Novel Adaptive Model Fusion}:
+    \begin{itemize}
+        \item Dynamically adjusts fusion weights based on input characteristics
+        \item Learns from historical performance to improve over time
+        \item Combines strengths of all three traditional approaches
+    \end{itemize}
+    \item \textbf{Multi-Model Architecture}:
+    \begin{itemize}
+        \item Leverages specialized models for different NLG tasks
+        \item Enables efficient resource allocation
+    \end{itemize}
+    \item \textbf{Parameter-Efficient Fine-Tuning}:
+    \begin{itemize}
+        \item Implemented LoRA for all models
+        \item Minimizes computational requirements
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Challenges \& Future Work}
+\begin{columns}[T]
+\column{0.5\textwidth}
+\textbf{Challenges \& Limitations:}
+\begin{itemize}
+    \item Implementation challenges:
+    \begin{itemize}
+        \item Complex model integration
+        \item Memory management
+    \end{itemize}
+\end{itemize}
+
+\column{0.5\textwidth}
+\textbf{Future Work:}
+\begin{itemize}
+    \item Enhance Adaptive Fusion:
+    \begin{itemize}
+        \item Add reinforcement learning
+        \item Automated feature extraction
+    \end{itemize}
+    \item Architectural improvements:
+    \begin{itemize}
+        \item Learned routing networks
+        \item Knowledge distillation
+    \end{itemize}
+\end{itemize}
+\end{columns}
+\end{frame}
+
+\section{Conclusion}
+
+\begin{frame}{Conclusion \& Contributions}
+\begin{columns}[T]
+\column{0.5\textwidth}
+\textbf{Conclusion:}
+\begin{itemize}
+    \item Multi-model approach leverages strengths of different architectures
+    \item Parameter-efficient fine-tuning with LoRA
+    \item Adaptive Model Fusion (our novel approach) shows promise
+    \item Code: \url{github.com/Dhruv-Kushwaha2010/NLP_Project} % Corrected URL handling
+\end{itemize}
+
+\column{0.5\textwidth}
+\textbf{Contributions:}
+\begin{itemize}
+    \item \textbf{Dhruv Kushwaha (2021MT10235)}:
+    \begin{itemize}
+        \item Fine-tuning pipeline
+        \item Dynamic Decision System
+        \item Evaluation framework
+    \end{itemize}
+    \item \textbf{Tarun Ajay Singh (2021ME10272)}:
+    \begin{itemize}
+        \item Ensemble and Pipeline Systems
+        \item Adaptive Model Fusion
+        \item Performance optimization
+    \end{itemize}
+\end{itemize}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Thank You!}
+\begin{center}
+\Huge Questions?
+\end{center}
+\end{frame}
+
+\end{document}

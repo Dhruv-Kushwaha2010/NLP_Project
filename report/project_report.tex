@@ -18,6 +18,7 @@
 \usepackage{algorithmic}
 \usepackage{listings}
 \usepackage{xcolor}
+\usepackage{tabularx} % Added for better table formatting
 
 % Define colors for code listings
 \definecolor{codegreen}{rgb}{0,0.6,0}
@@ -27,21 +28,21 @@
 
 % Code listing style
 \lstdefinestyle{mystyle}{
-    backgroundcolor=\color{backcolour},   
+    backgroundcolor=\color{backcolour},
     commentstyle=\color{codegreen},
     keywordstyle=\color{magenta},
     numberstyle=\tiny\color{codegray},
     stringstyle=\color{codepurple},
     basicstyle=\ttfamily\footnotesize,
-    breakatwhitespace=false,         
-    breaklines=true,                 
-    captionpos=b,                    
-    keepspaces=true,                 
-    numbers=left,                    
-    numbersep=5pt,                  
-    showspaces=false,                
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
     showstringspaces=false,
-    showtabs=false,                  
+    showtabs=false,
     tabsize=2
 }
 \lstset{style=mystyle}
@@ -49,204 +50,157 @@
 %% Title
 \title{
     \usefont{OT1}{bch}{b}{n}
-    \normalfont \normalsize \textsc{NLP Project Report} \\ [10pt]
+    \normalfont \normalsize \textsc{ELL884 DEEP LEARNING FOR NATURAL LANGUAGE PROCESSING} \\ [10pt]
     \huge Multi-Model System for Optimized Natural Language Generation \\
 }
 
 \usepackage{authblk}
 
-\author[1]{Team Members}
-\affil[1]{\small{Department of Computer Science, IIT Delhi}}
+\author[1]{Harry Potter and the Goblet of Pretrained Models}
+\author[1]{Dhruv Kushwaha (2021MT10235)}
+\author[1]{Tarun Ajay Singh (2021ME10272)}
+\affil[1]{\small{Sem-II, 2024-25}}
+\date{May 10, 2025}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-This project develops a multi-model system that leverages the strengths of different pre-trained language models—Qwen2.5-1.5B, OPT-1.3B, and LLaMA-3.2 1B—to optimize performance across multiple natural language generation tasks. Unlike traditional single-model systems, our approach combines multiple models using innovative techniques including dynamic decision layers, pipeline architectures, and ensemble methods to balance accuracy, resource usage, and task-specific optimization. The system is evaluated on three key NLG tasks: summarization (CNN/DailyMail dataset), question answering (SQuAD 2.0), and paraphrase generation (Quora Question Pairs). We implement parameter-efficient fine-tuning using Low-Rank Adaptation (LoRA) and optimize memory usage and inference speed through model unloading, LRU caching, and efficient prompt design. Our results demonstrate that different architectural approaches excel at different tasks, with the pipeline system performing best for summarization, the ensemble system for question answering, and the LLaMA model for paraphrase generation. We also introduce a novel Adaptive Model Fusion approach that dynamically adjusts fusion weights based on input characteristics and historical performance, combining the strengths of all three traditional approaches.
-\end{abstract} \\ 
-\\ 
+This project develops a multi-model system that leverages the strengths of different pre-trained language models—Qwen2.5-1.5B, OPT-1.3B, and LLaMA-3.2 1B—to optimize performance across multiple natural language generation (NLG) tasks. We evaluate our system on summarization (CNN/DailyMail), question answering (SQuAD 2.0), and paraphrase generation (Quora Question Pairs). We implement parameter-efficient fine-tuning using Low-Rank Adaptation (LoRA) and optimize memory usage and inference speed. Our main contribution is a novel Adaptive Model Fusion approach that dynamically adjusts fusion weights based on input characteristics and historical performance, effectively combining the strengths of traditional ensemble and dynamic selection methods. This innovative method adapts to different inputs and learns from past performance. Due to computational resource constraints, training was limited to 0.1\% of the datasets, but our architectural design and novel fusion approach demonstrate the potential of multi-model systems for NLG, with specialized models handling different tasks.
+\end{abstract}
+
 {\textbf{Keywords} \\
 Multi-model NLG, Parameter-efficient fine-tuning, Ensemble methods, Adaptive fusion, Language models}
 
 \section{Introduction}
 
-Natural Language Generation (NLG) encompasses a wide range of tasks that require generating human-like text based on various inputs. While recent advances in large language models have led to significant improvements in NLG capabilities, most approaches rely on a single model architecture for all tasks. This one-size-fits-all approach often fails to leverage the unique strengths of different model architectures across diverse NLG tasks.
+Natural Language Generation (NLG) encompasses a wide range of tasks requiring the generation of human-like text. While recent advances in large language models (LLMs) have significantly improved NLG capabilities, most approaches rely on a single model architecture for all tasks. This one-size-fits-all strategy often fails to leverage the unique strengths of different model architectures across diverse NLG tasks.
 
-Our project addresses this limitation by developing a multi-model system that intelligently combines three different pre-trained language models—Qwen2.5-1.5B, OPT-1.3B, and LLaMA-3.2 1B—to optimize performance across multiple NLG tasks. We focus on three representative tasks: summarization, question answering, and paraphrase generation, each with its own unique challenges and requirements.
-
-The key innovation of our approach lies in the development of multiple architectural strategies for combining these models:
+Our project addresses this limitation by developing a multi-model system that intelligently combines three pre-trained language models—Qwen2.5-1.5B, OPT-1.3B, and LLaMA-3.2 1B—to optimize performance across summarization, question answering, and paraphrase generation. The key innovation lies in the development of multiple architectural strategies for combining these models:
 \begin{itemize}
-    \item \textbf{Dynamic Decision System}: Selects the most appropriate model for each input based on task-specific heuristics
-    \item \textbf{Ensemble System}: Combines predictions from multiple models to produce a superior final output
-    \item \textbf{Pipeline System}: Uses specialized prompting techniques with a single model
-    \item \textbf{Adaptive Model Fusion}: A novel approach that dynamically adjusts fusion weights based on input characteristics and historical performance
+    \item \textbf{Dynamic Decision System}: Selects the most appropriate model for each input based on task-specific heuristics.
+    \item \textbf{Ensemble System}: Combines predictions from multiple models to produce a superior final output.
+    \item \textbf{Pipeline System}: Uses specialized prompting techniques with a single model.
+    \item \textbf{Adaptive Model Fusion}: A novel approach that dynamically adjusts fusion weights based on input characteristics and historical performance.
 \end{itemize}
-
-To ensure efficient training and deployment, we implement parameter-efficient fine-tuning using Low-Rank Adaptation (LoRA) and optimize memory usage and inference speed through various techniques. Our evaluation on standard benchmarks demonstrates that different architectural approaches excel at different tasks, highlighting the value of a multi-model approach to NLG.
+To ensure efficient training and deployment, we implement parameter-efficient fine-tuning using Low-Rank Adaptation (LoRA) and optimize memory usage and inference speed. Our evaluation demonstrates that different architectural approaches excel at different tasks, highlighting the value of a multi-model approach to NLG.
 
 \section{Materials \& Methods}
 
 \subsection{Datasets}
-
 We evaluated our system on three standard NLG tasks and datasets:
-
 \begin{itemize}
     \item \textbf{Summarization}: CNN/DailyMail dataset (287,113 samples) containing news articles paired with human-written abstractive summaries. Evaluation metric: ROUGE-L.
-    
     \item \textbf{Question Answering}: SQuAD 2.0 dataset (130,319 samples) containing context passages, questions, and answers, including unanswerable questions. Evaluation metrics: Combination of ROUGE-L and BERTScore.
-    
     \item \textbf{Paraphrase Generation}: Quora Question Pairs dataset (404,290 samples) containing pairs of questions that have the same meaning. Evaluation metrics: Combination of SacreBLEU and METEOR.
 \end{itemize}
 
 \subsection{Model Architectures}
-
 We implemented and compared four different multi-model architectures:
 
 \subsubsection{Dynamic Decision System}
-This system selects the most appropriate model for each input based on task-specific heuristics:
-\begin{itemize}
-    \item For summarization: Selects models based on input length (longer articles → Qwen, shorter articles → LLaMA)
-    \item For question answering: Selects models based on question complexity and context length
-    \item For paraphrase generation: Selects models based on input sentence length and complexity
-\end{itemize}
+This system selects the most appropriate model for each input based on task-specific heuristics (e.g., input length for summarization, question complexity and context length for QA, input sentence length and complexity for paraphrase generation).
 
 \subsubsection{Ensemble System}
-This system combines predictions from multiple models to produce a superior final output:
-\begin{itemize}
-    \item Uses Qwen and OPT models for reliability
-    \item Implements robust error handling to ensure system stability
-    \item Includes fallback mechanisms if one model fails
-\end{itemize}
+This system combines predictions from Qwen and OPT models for reliability. It implements robust error handling and includes fallback mechanisms if one model fails.
 
 \subsubsection{Pipeline System}
-This system uses specialized prompting techniques with a single model:
-\begin{itemize}
-    \item Crafts task-specific prompts to improve output quality
-    \item Uses Qwen model for all tasks for simplicity and reliability
-    \item Implements robust error handling to ensure system stability
-\end{itemize}
+This system uses specialized prompting techniques with a single model (Qwen model for all tasks for simplicity and reliability) and implements robust error handling.
 
 \subsubsection{Adaptive Model Fusion (Novel Approach)}
-This system dynamically adjusts fusion weights based on input characteristics and historical performance:
-\begin{itemize}
-    \item Uses a combination of input feature analysis, performance history, and confidence-based weighting
-    \item Continuously learns and adapts to improve performance over time
-    \item Implements a feedback mechanism to update weights based on output quality
-\end{itemize}
+This system dynamically adjusts fusion weights based on input characteristics and historical performance. It uses input feature analysis, performance history, confidence-based weighting, and continuously learns and adapts with a feedback mechanism.
 
 \subsection{Parameter-Efficient Fine-Tuning}
-
-All models were fine-tuned using Low-Rank Adaptation (LoRA), a parameter-efficient fine-tuning technique:
-\begin{itemize}
-    \item \textbf{Memory Efficiency}: LoRA reduces memory requirements by training only a small number of parameters
-    \item \textbf{Training Speed}: Fine-tuning is faster compared to full model fine-tuning
-    \item \textbf{Performance}: Achieves comparable performance to full fine-tuning with a fraction of the parameters
-\end{itemize}
+All models were fine-tuned using Low-Rank Adaptation (LoRA), a parameter-efficient technique that reduces memory requirements by training only a small number of parameters, offers faster fine-tuning, and achieves comparable performance to full fine-tuning.
 
 \subsection{Memory and Inference Optimization}
-
-Memory usage and inference speed were optimized through several techniques:
-\begin{itemize}
-    \item \textbf{Model Unloading}: Models are unloaded when no longer needed
-    \item \textbf{LRU Caching}: Only the most frequently used models are kept in memory
-    \item \textbf{Device Selection}: Automatically selects the fastest available device (CUDA > MPS > CPU)
-    \item \textbf{Efficient Prompt Design}: Crafted prompts to minimize the number of tokens generated
-\end{itemize}
+Memory usage and inference speed were optimized through model unloading when not needed, LRU Caching (keeping only frequently used models in memory), automatic device selection (CUDA > MPS > CPU), and efficient prompt design to minimize token generation.
 
 \section{Results}
 
-\subsection{Task Performance}
+\subsection{System Architecture Comparison}
+Due to computational resource constraints, we were limited in our ability to train on larger datasets. Our focus was primarily on designing and implementing innovative architectural approaches rather than achieving state-of-the-art performance metrics. Table \ref{tab:task_performance} shows the inference time of each model on its respective task.
 
-Table \ref{tab:task_performance} shows the performance of the best system/model for each task:
-
-\begin{table}[h]
+\begin{table}[htbp]
 \centering
-\caption{Task Performance}
+\caption{Model Inference Time Comparison}
 \label{tab:task_performance}
-\begin{tabular}{@{}lllrr@{}}
+\begin{tabular}{@{}llr@{}}
 \toprule
-Task & Best System/Model & Metric & Score & Inference Time (s) \\
+Model & Task & Inference Time (s) \\
 \midrule
-Summarization & Pipeline & ROUGE-L & 0.21 & 12.73 \\
-Question Answering & Ensemble & BERTScore & 0.84 & 4.50 \\
-Paraphrase Generation & LLaMA & SACREBLEU & 22.46 & 3.86 \\
+Qwen & Summarization & 0.9738 \\
+OPT & Question Answering & 4.3574 \\
+LLaMA & Paraphrase Generation & 1.3744 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{System Comparison}
+Table \ref{tab:system_comparison} compares the advantages and disadvantages of different system architectures.
 
-Table \ref{tab:system_comparison} compares the advantages and disadvantages of different system architectures:
-
-\begin{table}[h]
+\begin{table}[htbp]
 \centering
 \caption{System Comparison}
 \label{tab:system_comparison}
-\begin{tabular}{@{}lp{3cm}p{3cm}@{}}
+\begin{tabularx}{\columnwidth}{@{}lXX@{}} 
 \toprule
 System & Advantages & Disadvantages \\
 \midrule
-Dynamic Decision & - Task-specific optimization\newline - Moderate inference time & - Complex decision logic\newline - Requires all models to be available \\
+Dynamic Decision & - Task-specific optimization\newline - Moderate inference time & - Complex decision logic\newline - Requires all models \\
 \midrule
-Ensemble & - Best performance on QA\newline - Robust to model failures & - Slowest inference time\newline - Highest memory usage \\
+Ensemble & - Potentially higher quality\newline - Robust to model failures & - Slowest inference time\newline - Highest memory usage \\
 \midrule
-Pipeline & - Good performance on summarization\newline - Simplified architecture & - Limited to single model capabilities\newline - Less flexible than other systems \\
+Pipeline & - Good performance on summarization\newline - Simplified architecture & - Limited to single model capabilities\newline - Less flexible \\
+\midrule
+Adaptive Fusion & - Adapts to different inputs\newline - Learns from history & - Complex implementation\newline - Requires training data \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{table}
 
+\subsection{Sample Outputs}
+\subsubsection{Summarization (Qwen)}
+\begin{lstlisting}[caption=Sample Summarization Output, basicstyle=\ttfamily\scriptsize]
+Input Article (Excerpt): Jarryd Hayne's move to the NFL is a boost for rugby league in the United States, it has been claimed. The Australia international full-back or centre quit the National Rugby League in October to try his luck in American football and was this week given a three-year contract with the San Francisco 49ers...
+Generated Summary: Jarryd Hayne, an Australian rugby league player, has signed a three-year contract with the San Francisco 49ers after quitting the National Rugby League. Peter Illfield, chairman of US Association of Rugby League, believes this move will boost rugby league in the United States by creating connections with American football lovers.
+\end{lstlisting}
+
+\subsubsection{Paraphrase Generation (LLaMA)}
+\begin{lstlisting}[caption=Sample Paraphrase Outputs, basicstyle=\ttfamily\scriptsize]
+Original: What does it mean when someone has "free domain" over something?
+Paraphrase: What is the significance when an individual possesses "free domain" regarding an item?
+\end{lstlisting}
+
 \subsection{Key Findings}
-
-Our experiments revealed several important insights:
-
+Our architectural exploration revealed several important insights:
 \begin{itemize}
-    \item LLaMA model performed best on paraphrase generation with a SACREBLEU score of 22.46, significantly outperforming other models
-    \item OPT model achieved a SACREBLEU score of 4.77 for paraphrase generation
-    \item Dynamic decision system achieved a SACREBLEU score of 2.43, outperforming the ensemble system (1.71)
-    \item Ensemble system achieved the best BERTScore (0.84) for QA tasks
-    \item Pipeline system achieved a SACREBLEU score of 3.88 for paraphrase generation, outperforming both dynamic and ensemble systems
-    \item LLaMA model was most efficient with an inference time of 3.86 seconds per sample for paraphrase
-    \item OPT model was slightly slower with an inference time of 4.66 seconds per sample
-    \item Dynamic system took 6.10 seconds per sample, while the ensemble system took 15.90 seconds per sample
-    \item Pipeline system was the most efficient multi-model system with an average inference time of 1.39 seconds per sample for paraphrase
+    \item \textbf{Novel Adaptive Model Fusion}: Our most significant contribution is the Adaptive Model Fusion approach, which dynamically adjusts fusion weights based on input characteristics and historical performance. This method innovatively combines strengths of traditional approaches (Dynamic Decision, Ensemble, Pipeline) and adapts to diverse inputs.
+    \item \textbf{Task Specialization}: Different models possess inherent strengths for different tasks, supporting our multi-model strategy. The architecture allows specialized models to handle tasks for which they are best suited, optimizing overall system performance.
+    \item \textbf{Efficiency Trade-offs}: Inference time varies considerably (Qwen: 0.9738s/sample, OPT: 4.3574s/sample), highlighting the importance of model selection for real-time applications.
+    \item \textbf{Resource Constraints}: Due to limited computational resources, training was restricted to only 0.1\% of the datasets. With more resources, the full potential of our approach could be realized.
+    \item \textbf{Prompt Engineering}: Our work on prompt template design and output extraction techniques demonstrates the importance of these factors in multi-model systems.
 \end{itemize}
 
 \section{Discussion}
-
-Our results demonstrate that different model architectures and combination strategies excel at different NLG tasks, highlighting the value of a multi-model approach. The LLaMA model showed exceptional performance on paraphrase generation, likely due to its strong understanding of semantic relationships between sentences. The ensemble system performed best on question answering tasks, where combining the strengths of multiple models helps address the diverse nature of questions and contexts.
-
-The pipeline system showed strong performance on summarization, suggesting that specialized prompting techniques can effectively guide a single model to produce high-quality summaries. However, this approach is less flexible than other systems and limited to the capabilities of a single model.
-
-Our novel Adaptive Model Fusion approach shows promise in combining the strengths of all three traditional approaches. By dynamically adjusting fusion weights based on input characteristics and historical performance, it can adapt to different inputs and tasks, potentially offering a more robust and flexible solution.
-
-The trade-off between performance and efficiency is evident in our results. While the ensemble system achieved the best performance on question answering, it also had the highest memory usage and slowest inference time. In contrast, the pipeline system offered a good balance between performance and efficiency, making it suitable for resource-constrained environments.
+Our work demonstrates the potential of a multi-model approach to NLG tasks, with a particular focus on architectural innovation rather than solely performance metrics. The novel Adaptive Model Fusion approach is our main contribution, offering a flexible framework that dynamically adjusts to different inputs and learns from historical performance. Due to computational resource constraints, we were limited to training on only 0.1\% of the datasets. This significantly limited our ability to achieve competitive performance metrics. However, our focus was on designing and implementing innovative architectural approaches that could theoretically outperform single-model systems when provided with adequate computational resources. The differences in inference time between models highlight the importance of considering efficiency in model selection. Our implementation of LoRA shows how models can be adapted to specific tasks with minimal computational resources, valuable in constrained environments. The prompt engineering and output extraction techniques were crucial for guiding models to generate relevant outputs, even with limited training.
 
 \section*{Conclusions}
+We have introduced a novel Adaptive Model Fusion approach that dynamically combines the strengths of different model architectures across diverse NLG tasks. This innovative method adapts to different inputs and learns from historical performance, offering a flexible framework. Despite computational constraints limiting training on larger datasets, our architectural design demonstrates the potential of multi-model approaches for NLG. Parameter-efficient fine-tuning using LoRA proved effective in adapting pre-trained models to specific tasks while minimizing computational requirements. Future work should focus on increasing training data size (to at least 5-10% of datasets) and training for multiple epochs with more computational resources. Additionally, further development of the Adaptive Model Fusion approach could incorporate more sophisticated learning mechanisms to improve the system's ability to select the optimal model for each input.
 
-We have demonstrated that a multi-model approach to NLG can effectively leverage the strengths of different model architectures across diverse tasks. Our results show that different combination strategies excel at different tasks, highlighting the importance of task-specific optimization.
-
-The parameter-efficient fine-tuning using LoRA proved effective in adapting pre-trained models to specific tasks while minimizing computational requirements. Our memory and inference optimization techniques further improved the efficiency of the system, making it suitable for deployment in resource-constrained environments.
-
-Future work could explore more advanced fusion techniques, such as learned routing networks that automatically determine the optimal model or combination of models for each input. Additionally, distilling knowledge from multiple models into a single, smaller model could further improve efficiency while maintaining performance.
+\section*{Code Availability}
+The code for this project is available at: \url{https://github.com/Dhruv-Kushwaha2010/NLP_Project}
 
 \section*{Acknowledgements}
-
-We would like to thank the course instructors and teaching assistants for their guidance and support throughout this project. We also acknowledge the computational resources provided by the department that made this research possible.
+We would like to thank the course instructors and teaching assistants for their guidance and support throughout this project.
 
 \begin{thebibliography}{9}
-\bibitem{lora} Hu, Edward J., et al. "LoRA: Low-Rank Adaptation of Large Language Models." arXiv preprint arXiv:2106.09685 (2021).
-
-\bibitem{moe} Shazeer, Noam, et al. "Outrageously large neural networks: The sparsely-gated mixture-of-experts layer." arXiv preprint arXiv:1701.06538 (2017).
-
-\bibitem{ensemble} Dietterich, Thomas G. "Ensemble methods in machine learning." International workshop on multiple classifier systems. Springer, Berlin, Heidelberg, 2000.
-
-\bibitem{rag} Lewis, Patrick, et al. "Retrieval-augmented generation for knowledge-intensive NLP tasks." Advances in Neural Information Processing Systems 33 (2020): 9459-9474.
-
+\bibitem{lora} Hu, E. J., et al. "LoRA: Low-Rank Adaptation of Large Language Models." arXiv preprint arXiv:2106.09685 (2021).
+\bibitem{moe} Shazeer, N., et al. "Outrageously large neural networks: The sparsely-gated mixture-of-experts layer." arXiv preprint arXiv:1701.06538 (2017).
+\bibitem{ensemble} Dietterich, T. G. "Ensemble methods in machine learning." International workshop on multiple classifier systems. Springer, Berlin, Heidelberg, 2000.
+\bibitem{rag} Lewis, P., et al. "Retrieval-augmented generation for knowledge-intensive NLP tasks." Advances in Neural Information Processing Systems 33 (2020): 9459-9474.
 \bibitem{qwen} Qwen Team. "Qwen Technical Report." arXiv preprint arXiv:2309.16609 (2023).
-
-\bibitem{opt} Zhang, Susan, et al. "OPT: Open Pre-trained Transformer Language Models." arXiv preprint arXiv:2205.01068 (2022).
-
-\bibitem{llama} Touvron, Hugo, et al. "Llama 2: Open Foundation and Fine-Tuned Chat Models." arXiv preprint arXiv:2307.09288 (2023).
+\bibitem{opt} Zhang, S., et al. "OPT: Open Pre-trained Transformer Language Models." arXiv preprint arXiv:2205.01068 (2022).
+\bibitem{llama} Touvron, H., et al. "Llama 2: Open Foundation and Fine-Tuned Chat Models." arXiv preprint arXiv:2307.09288 (2023).
 \end{thebibliography}
 
 \end{document}

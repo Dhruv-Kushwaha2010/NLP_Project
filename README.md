@@ -1,379 +1,168 @@
 # Multi-Model System for Optimized Natural Language Generation
 
-## Problem Statement
+**Team: Harry Potter and the Goblet of Pretrained Models**
+- Dhruv Kushwaha (2021MT10235)
+- Tarun Ajay Singh (2021ME10272)
 
-The goal of this project is to develop a multi-model system that leverages the strengths of different pre-trained models—Qwen2.5-1.5B, OPT-1.3B, and LLaMA-3.2 1B—to optimize performance across multiple tasks in Natural Language Generation (NLG). Unlike traditional single-model systems, this project focuses on combining multiple models in an intelligent and efficient way to balance accuracy, resource usage, and task-specific optimization.
+**Course**: ELL884 DEEP LEARNING FOR NATURAL LANGUAGE PROCESSING, Sem-II, 2024-25
 
-The system uses innovative techniques including:
-
-- **Dynamic Decision Layers**: Decide which model(s) to query based on the input query or task type
-- **Pipeline Architectures**: Use one model's output as the input to another, creating a chain of processing for improved results
-- **Ensemble Techniques**: Combine predictions from multiple models to produce a superior final output
-
-## Tasks and Evaluation
-
-The system is evaluated on the following tasks and datasets:
-
-1. **Summarization**:
-   - Dataset: CNN/DailyMail (news articles → abstractive summaries)
-   - Dataset Size: 287,113 samples
-   - Evaluation: ROUGE-L
-   - Task: Generate concise and informative summaries of news articles
-
-2. **Question Answering**:
-   - Dataset: SQuAD 2.0 (context + question → answer or "no answer")
-   - Dataset Size: 130,319 samples
-   - Evaluation: Combination of ROUGE-L and BERTScore
-   - Task: Produce free-form answers based on a given context and question
-
-3. **Paraphrase Generation**:
-   - Dataset: Quora Question Pairs (questions → paraphrases)
-   - Dataset Size: 404,290 samples
-   - Evaluation: Combination of Sacre-BLEU and METEOR
-   - Task: Generate semantically equivalent paraphrases for input sentences
-
-## Our Approach
-
-### Multi-Model Architectures
-
-We implemented four different multi-model architectures to optimize performance across tasks:
-
-1. **Dynamic Decision System**:
-   - Selects the most appropriate model for each input based on task-specific heuristics
-   - For summarization: Selects models based on input length (longer articles → Qwen, shorter articles → LLaMA)
-   - For question answering: Selects models based on question complexity and context length
-   - For paraphrase generation: Selects models based on input sentence length and complexity
-
-2. **Ensemble System**:
-   - Combines predictions from multiple models to produce a superior final output
-   - Uses Qwen and OPT models for reliability
-   - Implements robust error handling to ensure system stability
-   - Includes fallback mechanisms if one model fails
-
-3. **Pipeline System**:
-   - Uses specialized prompting techniques with a single model
-   - Crafts task-specific prompts to improve output quality
-   - Uses Qwen model for all tasks for simplicity and reliability
-   - Implements robust error handling to ensure system stability
-
-4. **Adaptive Model Fusion** (Novel Approach):
-   - Dynamically adjusts fusion weights based on input characteristics and historical performance
-   - Uses a combination of input feature analysis, performance history, and confidence-based weighting
-   - Continuously learns and adapts to improve performance over time
-   - Implements a feedback mechanism to update weights based on output quality
-
-### Parameter-Efficient Fine-Tuning
-
-All models are fine-tuned using Low-Rank Adaptation (LoRA), a parameter-efficient fine-tuning technique:
-
-- **Memory Efficiency**: LoRA reduces memory requirements by training only a small number of parameters
-- **Training Speed**: Fine-tuning is faster compared to full model fine-tuning
-- **Performance**: Achieves comparable performance to full fine-tuning with a fraction of the parameters
-
-### Memory and Inference Optimization
-
-Memory usage and inference speed were optimized through several techniques:
-
-- **Model Unloading**: Models are unloaded when no longer needed
-- **LRU Caching**: Only the most frequently used models are kept in memory
-- **Device Selection**: Automatically selects the fastest available device (CUDA > MPS > CPU)
-- **Efficient Prompt Design**: Crafted prompts to minimize the number of tokens generated
+This repository contains the code and resources for a multi-model system that leverages the strengths of different pre-trained language models (Qwen2.5-1.5B, OPT-1.3B, and LLaMA-3.2 1B) to optimize performance across multiple natural language generation tasks.
 
 ## Project Structure
 
-The project is organized into the following directories:
-
-### Source Code (`src/`)
-
-- `device_utils.py`: Utilities for device selection (CUDA > MPS > CPU)
-- `load_models.py`: Functions to load the base models
-- `load_data.py`: Functions to load and preprocess datasets
-- `fine_tune_models.py`: Implementation of LoRA fine-tuning for each model-task pair
-- `evaluate_models.py`: Evaluation of model performance using various metrics
-- `multi_model_system.py`: Implementation of three multi-model architectures
-- `unified_api.py`: Unified API for all three tasks
-- `compare_systems.py`: Script to compare different systems and generate reports
-- `run_best_pipeline.py`: Script to run the best pipeline for all tasks
-- `demo_simplified.py`: Simplified demo script to test the system
-
-### Configuration (`config/`)
-
-- `set_hf_token.py`: Script to set your Hugging Face token for accessing LLaMA model
-- `sample_inputs.json`: Sample inputs for testing the system
-
-### Results and Outputs
-
-- `results/`: JSON files with evaluation results
-- `plots/`: Visualization plots for model comparisons
-- `logs/`: Log files from various components
-- `fine_tuned_models/`: Directory containing fine-tuned models
-
-### Scripts
-
-- `run_nlg_pipeline.sh`: Streamlined pipeline script to run the entire system
-- `run_demo.sh`: Script to run the demo with various options
-- `run_adaptive_fusion.sh`: Script to run the novel Adaptive Model Fusion system
-
-## Results and Performance
-
-### Task Performance
-
-| Task | Best System/Model | Metric | Score | Inference Time (s) |
-|------|------------------|--------|-------|-------------------|
-| Summarization | Pipeline | ROUGE-L | 0.21 | 12.73 |
-| Question Answering | Ensemble | BERTScore | 0.84 | 4.50 |
-| Paraphrase Generation | LLaMA | SACREBLEU | 22.46 | 3.86 |
-
-### System Comparison
-
-| System | Advantages | Disadvantages |
-|--------|------------|---------------|
-| Dynamic Decision | - Task-specific optimization<br>- Moderate inference time | - Complex decision logic<br>- Requires all models to be available |
-| Ensemble | - Best performance on QA<br>- Robust to model failures | - Slowest inference time<br>- Highest memory usage |
-| Pipeline | - Good performance on summarization<br>- Simplified architecture | - Limited to single model capabilities<br>- Less flexible than other systems |
-
-### Key Findings
-
-- LLaMA model performed best on paraphrase generation with a SACREBLEU score of 22.46, significantly outperforming other models
-- OPT model achieved a SACREBLEU score of 4.77 for paraphrase generation
-- Dynamic decision system achieved a SACREBLEU score of 2.43, outperforming the ensemble system (1.71)
-- Ensemble system achieved the best BERTScore (0.84) for QA tasks
-- Pipeline system achieved a SACREBLEU score of 3.88 for paraphrase generation, outperforming both dynamic and ensemble systems
-- LLaMA model was most efficient with an inference time of 3.86 seconds per sample for paraphrase
-- OPT model was slightly slower with an inference time of 4.66 seconds per sample
-- Dynamic system took 6.10 seconds per sample, while the ensemble system took 15.90 seconds per sample
-- Pipeline system was the most efficient multi-model system with an average inference time of 1.39 seconds per sample for paraphrase
-
-## Setup Instructions
-
-1. **Create Conda Environment**
-   ```bash
-   conda create -n nlp_project python=3.10 -y
-   conda activate nlp_project
-   ```
-
-2. **Install Dependencies**
-   ```bash
-   pip install torch transformers datasets evaluate peft nltk sacrebleu wandb
-   ```
-
-3. **Set Hugging Face Token**
-   ```bash
-   python config/set_hf_token.py YOUR_HUGGINGFACE_TOKEN
-   ```
-
-4. **Create Required Directories**
-   ```bash
-   mkdir -p fine_tuned_models results logs plots data
-   ```
-
-5. **Set Up Weights & Biases (Optional)**
-   ```bash
-   # Login to wandb (you'll be prompted for your API key)
-   wandb login
-
-   # For HPC environments where you can't use the interactive login:
-   export WANDB_API_KEY=your_api_key_here
-
-   # To use wandb in offline mode on HPC (sync results later):
-   export WANDB_MODE=offline
-   ```
-
-## Using the System
-
-### Option 1: Run the Pipeline
-
-```bash
-# Run the full pipeline
-./run_nlg_pipeline.sh
-
-# Run a quick pipeline (for testing)
-./run_nlg_pipeline.sh --quick
-
-# Run with quantization
-./run_nlg_pipeline.sh --use_quantization
-
-# Customize the pipeline with specific sample counts
-./run_nlg_pipeline.sh --num_train_samples 50 --num_eval_samples 20 --num_epochs 2
-
-# Use a percentage of the dataset instead of fixed sample count
-./run_nlg_pipeline.sh --dataset_size_percentage 20 --num_epochs 2
-
-# Enable Weights & Biases logging
-./run_nlg_pipeline.sh --use_wandb --wandb_project "my_project_name"
+```
+project_structure/
+├── code/                      # Source code
+│   ├── evaluation/            # Evaluation scripts
+│   ├── models/                # Model-specific code
+│   ├── pipeline/              # Pipeline implementation
+│   └── utils/                 # Utility functions
+├── data/                      # Data processing scripts
+├── docs/                      # Documentation
+├── models/                    # Fine-tuned models
+├── presentation/              # Presentation slides
+├── report/                    # Project report
+└── results/                   # Results and outputs
+    ├── figures/               # Visualizations
+    ├── logs/                  # Log files
+    └── metrics/               # Evaluation metrics
 ```
 
-### Option 2: Run the Demo Script
+## Tasks and Models
+
+We evaluate our system on three key NLG tasks:
+
+1. **Summarization** (CNN/DailyMail dataset) - Qwen2.5-1.5B
+2. **Question Answering** (SQuAD 2.0) - OPT-1.3B
+3. **Paraphrase Generation** (Quora Question Pairs) - LLaMA-3.2 1B
+
+## Key Features
+
+- **Multi-Model Architecture**: Combines multiple models using different strategies
+- **Parameter-Efficient Fine-Tuning**: Uses Low-Rank Adaptation (LoRA)
+- **Memory and Inference Optimization**: Optimizes for resource-constrained environments
+- **Adaptive Model Fusion**: Dynamically adjusts fusion weights based on input characteristics
+
+## Results
+
+| Model | Task | Metric | Score | Inference Time (s) |
+|-------|------|--------|-------|-------------------|
+| Qwen | Summarization | ROUGE-L | 0.1658 | 0.9738 |
+| OPT | QA | ROUGE-L | 0.0000 | 4.3574 |
+| OPT | QA | BERTScore F1 | 0.0000 | 4.3574 |
+| LLaMA | Paraphrase | SacreBLEU | 5.0673 | 1.3744 |
+
+## Setup and Installation
+
+### Requirements
+
+- Python 3.8+
+- PyTorch 2.0+
+- Transformers 4.30+
+- PEFT 0.4+
+- Datasets 2.12+
+- Evaluate 0.4+
+
+### Installation
 
 ```bash
-# Run all tasks with example inputs
-./run_demo.sh
+# Clone the repository
+git clone https://github.com/Dhruv-Kushwaha2010/NLP_Project.git
+cd NLP_Project
 
-# Run a specific task
-./run_demo.sh --task summarize
-./run_demo.sh --task qa
-./run_demo.sh --task paraphrase
-
-# Run with custom input
-./run_demo.sh --task summarize --input "Your text to summarize..."
-./run_demo.sh --task qa --input "Your context..." --question "Your question...?"
-./run_demo.sh --task paraphrase --input "Your text to paraphrase..."
-
-# Run with quantization
-./run_demo.sh --use_quantization
-```
-
-### Option 3: Run the Adaptive Fusion System
-
-```bash
-# Run on all tasks
-./run_adaptive_fusion.sh
-
-# Run on a specific task
-./run_adaptive_fusion.sh --task summarization
-./run_adaptive_fusion.sh --task qa
-./run_adaptive_fusion.sh --task paraphrase
-
-# Customize the parameters
-./run_adaptive_fusion.sh --num_samples 50 --learning_rate 0.2
-
-# Run with quantization
-./run_adaptive_fusion.sh --use_quantization
-```
-
-### Option 4: Use the Unified API in Your Code
-
-```python
-from src.unified_api import UnifiedNLGSystem
-
-# Initialize the system
-system = UnifiedNLGSystem()
-
-# Summarization
-summary = system.summarize("Your text to summarize...")
-
-# Question Answering
-answer = system.answer_question("Your context...", "Your question...?")
-
-# Paraphrase Generation
-paraphrase = system.generate_paraphrase("Your text to paraphrase...")
-```
-
-### Option 5: Fine-tuning on HPC
-
-For fine-tuning models on an HPC system with A100 GPUs, use the following commands:
-
-```bash
-# Activate the conda environment
+# Create a conda environment
+conda create -n nlp_project python=3.10
 conda activate nlp_project
 
-# Set up wandb in offline mode (recommended for HPC)
-export WANDB_MODE=offline
-export WANDB_API_KEY=your_api_key_here
-
-# Fine-tune Qwen model on summarization task with 20% of the dataset
-python src/fine_tune_models.py \
-  --model qwen \
-  --task summarization \
-  --dataset_size_percentage 20 \
-  --num_epochs 3 \
-  --batch_size 4 \
-  --gradient_accumulation_steps 4 \
-  --use_8bit \
-  --use_wandb \
-  --wandb_project "nlp_project_hpc" \
-  --wandb_name "qwen_summarization_20pct"
-
-# Fine-tune OPT model on question answering task with 20% of the dataset
-python src/fine_tune_models.py \
-  --model opt \
-  --task qa \
-  --dataset_size_percentage 20 \
-  --num_epochs 3 \
-  --batch_size 4 \
-  --gradient_accumulation_steps 4 \
-  --use_8bit \
-  --use_wandb \
-  --wandb_project "nlp_project_hpc" \
-  --wandb_name "opt_qa_20pct"
-
-# Fine-tune LLaMA model on paraphrase generation task with 20% of the dataset
-python src/fine_tune_models.py \
-  --model llama \
-  --task paraphrase \
-  --dataset_size_percentage 20 \
-  --num_epochs 3 \
-  --batch_size 4 \
-  --gradient_accumulation_steps 4 \
-  --use_8bit \
-  --use_wandb \
-  --wandb_project "nlp_project_hpc" \
-  --wandb_name "llama_paraphrase_20pct"
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-After training, you can sync your offline wandb runs when you have internet access:
+## Usage
+
+### Fine-tuning
+
 ```bash
-wandb sync --sync-all
+# Fine-tune Qwen on summarization
+python code/train_model.py --model qwen --task summarization --dataset_percentage 0.1
+
+# Fine-tune OPT on question answering
+python code/train_model.py --model opt --task qa --dataset_percentage 0.1
+
+# Fine-tune LLaMA on paraphrase generation
+python code/train_model.py --model llama --task paraphrase --dataset_percentage 0.1
 ```
 
-## Future Improvements
+### Evaluation
 
-1. **Model Distillation**: Distill knowledge from multiple models into a single, smaller model
-2. **Adaptive Batch Processing**: Implement batch processing for multiple inputs to improve throughput
-3. **Quantization**: Explore more advanced quantization techniques to reduce memory usage
-4. **Prompt Engineering**: Further optimize prompts for each task and model
-5. **Hybrid Approaches**: Combine the strengths of different multi-model architectures
-6. **Web Interface**: Create a simple web interface for the system
-7. **Deployment**: Prepare the system for deployment in a production environment
+```bash
+# Evaluate all models
+python code/evaluation/run_all_evaluations.py
 
-## Project Evaluation Rubrics
+# Generate visualizations
+python code/evaluation/generate_report_summary.py
+```
 
-The project will be evaluated based on the following criteria:
+### Demo
 
-1. **Final Project Presentation (5 marks)**
-   - Should be self-sufficient and comprehensive
-   - Maximum 25 slides
-   - 7 minutes for presentation
-   - Honestly mention the contribution of each member
+```bash
+# Run the demo
+python code/demo.py --model qwen --task summarization
+```
 
-2. **Code and Data (5 marks)**
-   - Commit to GitHub
-   - Well-organized and documented
+## Sample Outputs
 
-3. **Report (5 marks)**
-   - Follow the LaTeX template provided in `report/report_template.tex`
-   - Should not exceed 4 pages (2 marks deducted if exceeded)
-   - Include problem statement, proposed solution, experiments, results
-   - Cite references (no page limit for references)
-   - Include GitHub link
+### Summarization (Qwen)
 
-4. **Significant Contribution and Novelty (5 marks)**
-   - Demonstrate novel approaches in the project
-   - Show significant contributions from all team members
+**Input Article (Excerpt):**
+```
+Jarryd Hayne's move to the NFL is a boost for rugby league in the United States, it has been claimed. The Australia international full-back or centre quit the National Rugby League in October to try his luck in American football and was this week given a three-year contract with the San Francisco 49ers...
+```
 
-   Our novel contribution is the **Adaptive Model Fusion** approach, which:
-   - Dynamically adjusts fusion weights based on input characteristics and historical performance
-   - Uses a combination of input feature analysis, performance history, and confidence-based weighting
-   - Continuously learns and adapts to improve performance over time
-   - Implements a feedback mechanism to update weights based on output quality
-   - Combines the strengths of all three traditional approaches (Dynamic Decision, Ensemble, Pipeline)
+**Generated Summary:**
+```
+Jarryd Hayne, an Australian rugby league player, has signed a three-year contract with the San Francisco 49ers after quitting the National Rugby League. Peter Illfield, chairman of US Association of Rugby League, believes this move will boost rugby league in the United States by creating connections with American football lovers.
+```
 
-### Viva Format
-- Duration: 10 minutes
-  - 7 minutes for project presentation
-  - 2 minutes for question answering
-  - 1 minute for report, code, and data inspection
+### Paraphrase Generation (LLaMA)
 
-## References
+**Original:** What does it mean when someone has "free domain" over something?
+**Paraphrase:** What is the significance when an individual possesses "free domain" regarding an item?
 
-### Parameter Efficient Fine Tuning
-- [LoRA: Low-Rank Adaptation of Large Language Models](https://arxiv.org/abs/2106.09685)
-- [Prefix-Tuning: Optimizing Continuous Prompts for Generation](https://arxiv.org/abs/2101.00190)
+**Original:** How do I increase the fan speed of a cooling pad?
+**Paraphrase:** In what way can I enhance the velocity of a cooling pad's fan?
 
-### Dynamic Decision Layers and Model Routing
-- [Mixture of Experts](https://arxiv.org/abs/1701.06538)
-- [AdaBERT: Task-Adaptive BERT Compression with Mixture-of-Adapters](https://arxiv.org/abs/2005.04861)
+## Limitations and Future Work
 
-### Ensemble and Modular Techniques
-- [Ensemble Methods in Machine Learning](https://link.springer.com/chapter/10.1007/3-540-45014-9_1)
-- [RAG: Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks](https://arxiv.org/abs/2005.11401)
+- Limited training data (0.1% of datasets)
+- Single epoch training
+- Output extraction issues
+- Model size limitations
+
+Future work should focus on:
+- Increasing training data to 5-10% of datasets
+- Training for 3-5 epochs with early stopping
+- Further refining prompt templates
+- Implementing more sophisticated ensemble techniques
+- Exploring learned routing networks
+
+## Citation
+
+```
+@misc{multi-model-nlg,
+  author = {Kushwaha, Dhruv and Singh, Tarun Ajay},
+  title = {Multi-Model System for Optimized Natural Language Generation},
+  year = {2024},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  howpublished = {\url{https://github.com/Dhruv-Kushwaha2010/NLP_Project}}
+}
+```
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgements
+
+We would like to thank the course instructors and teaching assistants for their guidance and support throughout this project. We also acknowledge the computational resources provided by the department that made this research possible.
